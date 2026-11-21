@@ -769,15 +769,13 @@ struct ShellDetail: View {
             ShellTitleField(model: model, size: titleSize)
             Spacer(minLength: 12)
             // The mode buttons act on a note; with none open they are gone.
+            // Format is a low-frequency move and lives in the Format menu
+            // (Command-L), so it keeps no seat here.
             if model.selectedNote != nil {
                 HStack(spacing: 4) {
                     ChromeButton(image: "icon_preview", help: "Toggle Preview", isActive: model.editorMode == .preview) {
                         model.toggleEditorMode()
                     }
-                    ChromeButton(image: "icon_format", help: model.isFormatting ? "Formatting... click again to cancel" : "Format") {
-                        model.format()
-                    }
-                    .opacity(model.isFormatting ? 0.6 : 1)
                     ChromeButton(symbol: "list.bullet.indent", help: "Toggle Outline", isActive: model.isOutlineVisible) {
                         model.toggleOutline()
                     }
