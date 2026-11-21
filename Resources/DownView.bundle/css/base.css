@@ -614,3 +614,27 @@ body.miaoyan-split-mode::-webkit-scrollbar {
 body.miaoyan-split-mode {
   scrollbar-width: none;
 }
+
+/* ==================== Retired page TOC ====================
+ * Branch `spm`: the native outline column replaced the page's hover TOC,
+ * so its trigger strip and panels stay out of sight even though the nodes
+ * remain in index.html. */
+.toc-hover-trigger,
+.toc-nav,
+.toc-content {
+  display: none !important;
+}
+
+/* ==================== No scrollbars ====================
+ * The user's call: wheel, trackpad and keyboard scrolling all still work,
+ * the pane simply shows no indicator — neither the WebKit-drawn one (which
+ * the split-mode rule above only covered) nor any inner one. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
