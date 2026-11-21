@@ -532,8 +532,9 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             menuItem.state = model.editorMode == .preview ? .on : .off
             return hasNote && !model.isPresenting && !model.isExporting
         case #selector(toggleOutlinePanel(_:)):
+            // Command-5 during a deck would slide the column over the slides.
             menuItem.state = model.isOutlineVisible ? .on : .off
-            return true
+            return !model.isPresenting
         case #selector(togglePresentation(_:)):
             // Command-4 also leaves a PPT deck, as in the storyboard window.
             menuItem.state = model.isPresenting && !model.isPPT ? .on : .off

@@ -574,6 +574,9 @@ final class ShellModel {
 
     func togglePreview() {
         guard !isPresenting, !isExporting else { return }
+        // An input method's composition lives in the buffer of the view the
+        // switch is about to detach; leave it alone until it commits.
+        guard !editor.textView.hasMarkedText() else { return }
         setMode(editorMode == .preview ? modeAfterPreview : .preview)
     }
 
