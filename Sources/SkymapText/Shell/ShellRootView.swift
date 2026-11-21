@@ -134,19 +134,45 @@ private struct ChromeButton: View {
     }
 }
 
-// MARK: - Sidebar
+// MARK: - Navigation (folders and notes in one column)
 
 @available(macOS 14, *)
-struct ShellSidebar: View {
+struct ShellNav: View {
     @Bindable var model: ShellModel
-    @FocusState private var focused: Bool
+    @FocusState private var navFocused: Bool
+    @FocusState private var searchFocused: Bool
+    @State private var scrollBox = ShellScrollViewBox()
+    /// Each scope's scroll place, for this session.
+    @State private var scrollOffsets: [ShellModel.Scope: CGFloat] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 2) {
-                Spacer()
-                ChromeButton(image: "addProject", help: "New Folder") { model.promptNewFolder() }
-                ChromeButton(image: "icon_sidebar_left", help: "Toggle Note List") { model.cycleLayout() }
+            Group {
+                if model.isSearchOpen || !model.searchText.isEmpty {
+                    // The field leads with room for the traffic lights, which
+                    // sit over this column as the leftmost one.
+                    HStack(spacing: 6) {
+                        Spacer().frame(width: ShellStyle.trafficLightsInset - 16)
+                        ShellSearchField(
+                            text: $model.searchText, focused: $searchFocused
+                        ) {
+                            model.searchText = ""
+                            model.isSearchOpen = false
+                            // The field goes away; the rows keep the keys, so
+                            // the arrows and Command-Delete work without a click.
+                            navFocused = true
+                        }
+                        .onAppear { searchFocused = true }
+                        Spacer(minLength: 0)
+                    }
+                } else {
+                    HStack(spacing: 2) {
+                        Spacer()
+                        ChromeButton(image: "addProject", help: "New Folder") { model.promptNewFolder() }
+                        ChromeButton(symbol: "magnifyingglass", help: "Search") { model.isSearchOpen = true }
+                        ChromeButton(image: "icon_sidebar_left", help: "Toggle Navigation") { model.toggleNav() }
+                    }
+                }
             }
             .padding(.horizontal, 10)
             .frame(height: ShellStyle.headerHeight)
@@ -158,7 +184,7 @@ struct ShellSidebar: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 1) {
+                    LazyVStack(alignment: .leading, spacing: 1) {
                         // 30pt of room above the lockup's ink and 30 under it to
                         // All Notes, the storyboard sidebar's gaps (2x captures:
                         // 26 and 25.5 before the drop and the gap; 3 and 9.5 since
@@ -166,51 +192,153 @@ struct ShellSidebar: View {
                         ShellSidebarBrand(title: model.brandTitle)
                             .padding(.top, 3)
                         SwiftUI.Color.clear.frame(height: 9.5)
-                        ForEach(model.sidebarRows) { row in
-                            ShellSidebarRow(model: model, row: row, isSelected: model.scope == row.id)
-                                .id(row.id)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    model.scope = row.id
-                                    focused = true
-                                }
-                                .accessibilityAction { model.scope = row.id }
+                        ForEach(model.navRows) { row in
+                            navRow(row)
                         }
                     }
                     .padding(.horizontal, 8)
                     .padding(.bottom, 10)
+                    .background(alignment: .topLeading) {
+                        ShellScrollViewProbe { scrollBox.view = $0 }.frame(width: 1, height: 1)
+                    }
                 }
                 .scrollContentBackground(.hidden)
-                // The chosen row stays in view, whether the arrows moved to it
-                // or it is a deep folder remembered from the last launch.
-                .onChange(of: model.scope) { _, scope in proxy.scrollTo(scope) }
-                .onAppear {
-                    Task { @MainActor in proxy.scrollTo(model.scope) }
+                .onChange(of: model.selectedNoteURL) { _, url in
+                    guard let url else { return }
+                    proxy.scrollTo(rowID(forNote: url))
                 }
+                // The chosen scope's scroll place is kept while another scope
+                // is shown, as the storyboard list kept each folder's.
+                .onChange(of: model.scope) { old, _ in
+                    guard model.listContent == .init(scope: old, isSearch: false),
+                        let offset = scrollBox.view?.contentView.bounds.origin.y
+                    else { return }
+                    scrollOffsets[old] = offset
+                }
+                .onChange(of: model.listContent) { old, new in
+                    guard let new, !new.isSearch else { return }
+                    revealSelection(proxy, restoring: old?.scope == new.scope ? nil : scrollOffsets[new.scope] ?? 0)
+                }
+                .onAppear {
+                    if model.listContent != nil { revealSelection(proxy, restoring: nil) }
+                }
+            }
+            .focusable()
+            .focusEffectDisabled()
+            .focused($navFocused)
+            .onKeyPress(.upArrow) {
+                model.selectNext(-1)
+                return .handled
+            }
+            .onKeyPress(.downArrow) {
+                model.selectNext(1)
+                return .handled
+            }
+            .onChange(of: model.focusRequest) { _, request in
+                switch request {
+                case .sidebar, .list:
+                    navFocused = true
+                case .search:
+                    model.isSearchOpen = true
+                    if searchFocused {
+                        // Marked focused while the editor has the keys, or
+                        // set while the column was collapsed: focus again.
+                        searchFocused = false
+                        Task { @MainActor in searchFocused = true }
+                    } else {
+                        searchFocused = true
+                    }
+                default:
+                    return
+                }
+                model.focusRequest = nil
+            }
+            // Finder files dropped on the column are imported into the chosen
+            // folder, or the main folder from All Notes.
+            .dropDestination(for: URL.self) { urls, _ in
+                model.importDropped(urls, into: model.dropProject)
             }
         }
         .id(model.interfaceRevision)
         .background(ShellStyle.background.ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
-        .focusable()
-        .focusEffectDisabled()
-        .focused($focused)
-        .onKeyPress(.upArrow) {
-            model.selectNextScope(-1)
-            return .handled
+    }
+
+    private func rowID(forNote url: URL) -> String { "note:" + url.path }
+    private func rowID(forScope scope: ShellModel.Scope) -> String { "folder:" + scope.storedValue }
+
+    @ViewBuilder private func navRow(_ row: ShellModel.NavRow) -> some View {
+        switch row.kind {
+        case .folder(let sidebarRow, _):
+            ShellSidebarRow(model: model, row: sidebarRow, isSelected: model.scope == sidebarRow.id)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    model.scope = sidebarRow.id
+                    navFocused = true
+                }
+                .accessibilityAction { model.scope = sidebarRow.id }
+        case .section(let title):
+            ShellSectionHeader(title: title)
+        case .note(let note, let indent):
+            noteRow(note)
+                .padding(.leading, CGFloat(indent) * 14)
         }
-        .onKeyPress(.downArrow) {
-            model.selectNextScope(1)
-            return .handled
+    }
+
+    private func noteRow(_ note: Note) -> some View {
+        let isSelected = model.isSelected(note)
+        return ShellNoteRow(
+            note: note,
+            snippet: model.snippet(for: note),
+            date: ShellModel.rowDate(for: note),
+            isSelected: isSelected,
+            showsDivider: !isSelected
+        )
+        .background {
+            // File ▸ Export pops its menu at the open note's row.
+            if note.url == model.selectedNoteURL {
+                GeometryReader { proxy in
+                    let frame = proxy.frame(in: .global)
+                    SwiftUI.Color.clear
+                        .onAppear { model.selectedRowFrame = frame }
+                        .onChange(of: frame) { _, frame in model.selectedRowFrame = frame }
+                        .onDisappear {
+                            if model.selectedRowFrame == frame { model.selectedRowFrame = nil }
+                        }
+                }
+            }
         }
-        .onKeyPress(.leftArrow) {
-            model.setChosenFolderExpanded(false)
-            return .handled
+        .contentShape(Rectangle())
+        .onTapGesture {
+            model.clickNote(note, modifiers: NSEvent.modifierFlags)
+            navFocused = true
         }
-        .onChange(of: model.focusRequest) { _, request in
-            guard request == .sidebar else { return }
-            focused = true
-            model.focusRequest = nil
+        .accessibilityAction {
+            model.clickNote(note, modifiers: [])
+            navFocused = true
+        }
+        // A right-click selects the row under the pointer first.
+        .onHover { inside in
+            if inside {
+                model.hoveredNoteURL = note.url
+            } else if model.hoveredNoteURL == note.url {
+                model.hoveredNoteURL = nil
+            }
+        }
+        .contextMenu { ShellNoteMenu(model: model, note: note) }
+        .draggable(note.url)
+    }
+
+    /// NotesTableView.restoreScrollPosition: the scope's remembered place
+    /// (`offset`, the top for one not seen yet), then the open note scrolled
+    /// into view when it is off screen. Runs once the new rows are laid out.
+    private func revealSelection(_ proxy: ScrollViewProxy, restoring offset: CGFloat?) {
+        Task { @MainActor in
+            if let offset, let scrollView = scrollBox.view {
+                scrollView.contentView.scroll(to: NSPoint(x: 0, y: offset))
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+            }
+            if let url = model.selectedNoteURL { proxy.scrollTo(rowID(forNote: url)) }
         }
     }
 }
@@ -441,197 +569,6 @@ private struct ShellFolderDrag: ViewModifier {
 
 // MARK: - Note list
 
-@available(macOS 14, *)
-struct ShellNoteList: View {
-    @Bindable var model: ShellModel
-    @FocusState private var listFocused: Bool
-    @FocusState private var searchFocused: Bool
-    @State private var scrollBox = ShellScrollViewBox()
-    /// Each folder's scroll place, for this session.
-    @State private var scrollOffsets: [ShellModel.Scope: CGFloat] = [:]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.leading, 16)
-                .padding(.trailing, 10)
-                .frame(height: ShellStyle.headerHeight)
-                .background(ShellTitleBarArea())
-                .background(ShellStyle.background)
-                .zIndex(1)
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(model.sections) { section in
-                            if let title = section.title {
-                                ShellSectionHeader(title: title)
-                            }
-                            ForEach(Array(section.notes.enumerated()), id: \.element.url) { index, note in
-                                let next = section.notes.indices.contains(index + 1) ? section.notes[index + 1] : nil
-                                let isSelected = model.isSelected(note)
-                                ShellNoteRow(
-                                    note: note,
-                                    snippet: model.snippet(for: note),
-                                    date: ShellModel.rowDate(for: note),
-                                    isSelected: isSelected,
-                                    showsDivider: !isSelected && !(next.map(model.isSelected) ?? false)
-                                )
-                                .id(note.url)
-                                .background {
-                                    // File ▸ Export pops its menu at the open note's row.
-                                    if note.url == model.selectedNoteURL {
-                                        GeometryReader { proxy in
-                                            let frame = proxy.frame(in: .global)
-                                            SwiftUI.Color.clear
-                                                .onAppear { model.selectedRowFrame = frame }
-                                                .onChange(of: frame) { _, frame in model.selectedRowFrame = frame }
-                                                .onDisappear {
-                                                    if model.selectedRowFrame == frame { model.selectedRowFrame = nil }
-                                                }
-                                        }
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    model.clickNote(note, modifiers: NSEvent.modifierFlags)
-                                    listFocused = true
-                                }
-                                .accessibilityAction {
-                                    model.clickNote(note, modifiers: [])
-                                    listFocused = true
-                                }
-                                // A right-click selects the row under the pointer first.
-                                .onHover { inside in
-                                    if inside {
-                                        model.hoveredNoteURL = note.url
-                                    } else if model.hoveredNoteURL == note.url {
-                                        model.hoveredNoteURL = nil
-                                    }
-                                }
-                                .contextMenu { ShellNoteMenu(model: model, note: note) }
-                                .draggable(note.url)
-                            }
-                        }
-                    }
-                    .padding(.bottom, 10)
-                    .background(alignment: .topLeading) {
-                        ShellScrollViewProbe { scrollBox.view = $0 }.frame(width: 1, height: 1)
-                    }
-                }
-                .scrollContentBackground(.hidden)
-                .onChange(of: model.selectedNoteURL) { _, url in
-                    guard let url else { return }
-                    proxy.scrollTo(url)
-                }
-                // NotesTableView keeps each folder's scroll place and shows
-                // the open note when the list comes back to a folder.
-                .onChange(of: model.scope) { old, _ in
-                    guard model.listContent == .init(scope: old, isSearch: false),
-                        let offset = scrollBox.view?.contentView.bounds.origin.y
-                    else { return }
-                    scrollOffsets[old] = offset
-                }
-                .onChange(of: model.listContent) { old, new in
-                    guard let new, !new.isSearch else { return }
-                    revealSelection(proxy, restoring: old?.scope == new.scope ? nil : scrollOffsets[new.scope] ?? 0)
-                }
-                .onAppear {
-                    if model.listContent != nil { revealSelection(proxy, restoring: nil) }
-                }
-            }
-            .focusable()
-            .focusEffectDisabled()
-            .focused($listFocused)
-            .onKeyPress(.upArrow) {
-                model.selectNext(-1)
-                return .handled
-            }
-            .onKeyPress(.downArrow) {
-                model.selectNext(1)
-                return .handled
-            }
-            .onChange(of: model.focusRequest) { _, request in
-                switch request {
-                case .list:
-                    listFocused = true
-                case .search:
-                    model.isSearchOpen = true
-                    if searchFocused {
-                        // Marked focused while the editor has the keys, or
-                        // set while the column was collapsed: focus again.
-                        searchFocused = false
-                        Task { @MainActor in searchFocused = true }
-                    } else {
-                        searchFocused = true
-                    }
-                default:
-                    return
-                }
-                model.focusRequest = nil
-            }
-            // Finder files dropped on the list are imported into the chosen
-            // folder, or the main folder from All Notes.
-            .dropDestination(for: URL.self) { urls, _ in
-                model.importDropped(urls, into: model.dropProject)
-            }
-        }
-        .id(model.interfaceRevision)
-        .background(ShellStyle.background.ignoresSafeArea())
-        .ignoresSafeArea(.container, edges: .top)
-    }
-
-    /// NotesTableView.restoreScrollPosition: the folder's remembered place
-    /// (`offset`, the top for one not seen yet), then the open note scrolled
-    /// into view when it is off screen. Runs once the new rows are laid out.
-    private func revealSelection(_ proxy: ScrollViewProxy, restoring offset: CGFloat?) {
-        Task { @MainActor in
-            if let offset, let scrollView = scrollBox.view {
-                scrollView.contentView.scroll(to: NSPoint(x: 0, y: offset))
-                scrollView.reflectScrolledClipView(scrollView.contentView)
-            }
-            if let url = model.selectedNoteURL { proxy.scrollTo(url) }
-        }
-    }
-
-    /// The folder's name, as Bear heads its list, with search one click away;
-    /// a query in progress keeps the field open.
-    @ViewBuilder private var header: some View {
-        HStack(spacing: 6) {
-            if model.layout != .all {
-                // The folders are hidden, so the traffic lights and the
-                // layout button move into this column.
-                Spacer().frame(width: ShellStyle.trafficLightsInset - 16)
-                ChromeButton(image: "icon_sidebar_left", help: "Toggle Note List") { model.cycleLayout() }
-            }
-            if model.isSearchOpen || !model.searchText.isEmpty {
-                // Return opens the matching note and Command-Return makes one
-                // named after the query, as the storyboard window's search
-                // field does; the window controller's key monitor takes both.
-                ShellSearchField(
-                    text: $model.searchText, focused: $searchFocused
-                ) {
-                    model.searchText = ""
-                    model.isSearchOpen = false
-                    // The field goes away; the list keeps the keys, so the
-                    // arrows and Command-Delete work without a click.
-                    listFocused = true
-                }
-                .onAppear { searchFocused = true }
-            } else {
-                let size = CGFloat(UserDefaultsManagement.nameFontSize) + 1
-                Text(model.scopeTitle)
-                    .font(ShellStyle.interface(size, weight: ShellStyle.titleWeight))
-                    .kerning(ShellStyle.tracking(size))
-                    .foregroundStyle(ShellStyle.text)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                ChromeButton(symbol: "magnifyingglass", help: "Search") { model.isSearchOpen = true }
-            }
-        }
-    }
-}
-
 /// The AppKit scroll view behind the note list's ScrollView, whose offset
 /// SwiftUI on macOS 14 neither reports nor sets.
 @MainActor
@@ -813,18 +750,14 @@ struct ShellDetail: View {
             }
             if let note = model.selectedNote {
                 switch model.editorMode {
-                case .edit:
-                    ShellEditorView(controller: model.editor, note: note)
                 case .preview:
                     ShellPreview(
                         note: note, revision: model.contentRevision, styleRevision: model.previewStyleRevision,
                         onMake: { model.preview = $0 }, onLoad: { model.previewDidLoad($0) })
-                case .split:
-                    ShellEditorSplit(
-                        controller: model.editor, note: note,
-                        preview: ShellPreview(
-                            note: note, revision: model.contentRevision, styleRevision: model.previewStyleRevision,
-                            onMake: { model.preview = $0 }, onLoad: { model.editor.splitPreviewDidLoad($0) }))
+                default:
+                    // The split mode was retired with the merged navigation
+                    // column; a stale persisted value comes back editing.
+                    ShellEditorView(controller: model.editor, note: note)
                 }
             } else {
                 SwiftUI.Color.clear
@@ -844,7 +777,7 @@ struct ShellDetail: View {
         return HStack(spacing: 4) {
             if model.layout == .noteOnly {
                 Spacer().frame(width: ShellStyle.trafficLightsInset - ShellStyle.noteTextInset)
-                ChromeButton(image: "icon_sidebar_left", help: "Toggle Note List") { model.cycleLayout() }
+                ChromeButton(image: "icon_sidebar_left", help: "Toggle Navigation") { model.toggleNav() }
                     .padding(.trailing, 6)
             }
             ShellTitleField(model: model, size: titleSize)
@@ -852,17 +785,16 @@ struct ShellDetail: View {
             // The mode buttons act on a note; with none open they are gone.
             if model.selectedNote != nil {
                 HStack(spacing: 4) {
-                    ChromeButton(image: "icon_editor_split", help: "Toggle Split Mode", isActive: model.editorMode == .split) {
-                        model.toggleSplit()
+                    ChromeButton(image: "icon_preview", help: "Toggle Preview", isActive: model.editorMode == .preview) {
+                        model.toggleEditorMode()
                     }
                     ChromeButton(image: "icon_format", help: model.isFormatting ? "Formatting... click again to cancel" : "Format") {
                         model.format()
                     }
                     .opacity(model.isFormatting ? 0.6 : 1)
-                    ChromeButton(image: "icon_preview", help: "Toggle Preview", isActive: model.editorMode == .preview) {
-                        model.togglePreview()
+                    ChromeButton(symbol: "list.bullet.indent", help: "Toggle Outline", isActive: model.isOutlineVisible) {
+                        model.toggleOutline()
                     }
-                    ChromeButton(image: "icon_presentation", help: "Presentation") { model.setPresenting(true) }
                 }
                 // An export drives the preview itself; a mode switch midway
                 // captured the wrong pane, as the menu items already know.
@@ -885,6 +817,77 @@ struct ShellDetail: View {
 
     private var isButtonDisplayOnHover: Bool {
         buttonShow == "Hover"
+    }
+}
+
+// MARK: - Outline
+
+/// The open note's headings in a slim trailing column. A row click scrolls
+/// the editor, or the preview when the rendered mode is showing, to the
+/// heading's line — the same line mapping the split sync and the preview's
+/// sourcepos anchors already share.
+@available(macOS 14, *)
+struct ShellOutline: View {
+    @Bindable var model: ShellModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 2) {
+                let size = CGFloat(UserDefaultsManagement.nameFontSize)
+                Text(I18n.str("Outline"))
+                    .font(ShellStyle.interface(size, weight: ShellStyle.titleWeight))
+                    .kerning(ShellStyle.tracking(size))
+                    .foregroundStyle(ShellStyle.text)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                ChromeButton(symbol: "xmark", help: "Toggle Outline") { model.toggleOutline() }
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 10)
+            .frame(height: ShellStyle.headerHeight)
+            .background(ShellTitleBarArea())
+            .background(ShellStyle.background)
+            .zIndex(1)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if model.outline.isEmpty {
+                        Text(I18n.str("No Headings"))
+                            .font(ShellStyle.interface(CGFloat(UserDefaultsManagement.dateFontSize)))
+                            .foregroundStyle(ShellStyle.tertiaryText)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                    } else {
+                        ForEach(model.outline) { entry in
+                            Button {
+                                model.outlineJump(entry)
+                            } label: {
+                                Text(entry.title)
+                                    .font(
+                                        ShellStyle.interface(
+                                            CGFloat(UserDefaultsManagement.nameFontSize - 1),
+                                            weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
+                                    .foregroundStyle(entry.level <= 2 ? ShellStyle.text : ShellStyle.secondaryText)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .help(entry.title)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, CGFloat(entry.level - 1) * 14 + 12)
+                            .padding(.trailing, 10)
+                            .padding(.vertical, 5)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                    }
+                }
+                .padding(.bottom, 10)
+            }
+            .scrollContentBackground(.hidden)
+        }
+        .background(ShellStyle.background.ignoresSafeArea())
+        .ignoresSafeArea(.container, edges: .top)
+        .onAppear { model.refreshOutline() }
     }
 }
 
@@ -1045,13 +1048,6 @@ private struct ShellNoteMenu: View {
             }
             item("Copy Path", "doc.on.clipboard") { model.copyNotePaths(group) }
             Divider()
-            if !note.isTrash() {
-                item("MiaoYan PPT", "sparkles") {
-                    model.selectedNoteURL = note.url
-                    model.setPresenting(true, ppt: true)
-                }
-                Divider()
-            }
             item(note.isPinned ? "Unpin Note" : "Pin Note", "flag") { model.togglePin(note) }
             if !note.isTrash() {
                 item("Duplicate", "plus.square.on.square") { model.duplicate(group) }

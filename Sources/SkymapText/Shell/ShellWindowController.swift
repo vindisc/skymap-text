@@ -21,8 +21,6 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     let model: ShellModel
 
     init() {
-        // Before the model reads its stored layout and the split its widths.
-        Self.adoptStoryboardColumns()
         model = ShellModel()
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
@@ -30,9 +28,11 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             backing: .buffered,
             defer: false
         )
-        // The storyboard window's localized title, for the Window menu,
-        // Mission Control and VoiceOver; the title bar still draws none.
-        window.title = Bundle.main.localizedString(forKey: "IQv-IB-iLA.title", value: "MiaoYan", table: "Main")
+        // The bundle's display name, for the Window menu, Mission Control
+        // and VoiceOver; the title bar still draws none.
+        window.title = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String
+            ?? "SkymapText"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -145,56 +145,8 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             display: true)
     }
 
-    /// First shell launch: the storyboard window's column widths and hidden
-    /// columns, so switching windows keeps the layout. Written once, as the
-    /// split's autosave and the model's stored layout, while the shell has
-    /// neither of its own.
-    static func adoptStoryboardColumns(_ defaults: UserDefaults = .standard) {
-        let shellSplitKey = "NSSplitView Subview Frames MiaoYanShellSplit"
-        guard defaults.object(forKey: shellSplitKey) == nil,
-            let columns = storyboardColumns(
-                sidebar: defaults.stringArray(forKey: "NSSplitView Subview Frames SidebarSplitView"),
-                list: defaults.stringArray(forKey: "NSSplitView Subview Frames EditorSplitView"))
-        else { return }
-        defaults.set(columns.frames, forKey: shellSplitKey)
-        // ShellModel's layoutKey.
-        if defaults.object(forKey: "ShellLayout") == nil {
-            defaults.set(columns.layout.rawValue, forKey: "ShellLayout")
-        }
-    }
-
-    /// The shell's three column frames and its layout from the storyboard's
-    /// two splits: folders against the rest, then notes against the editor.
-    /// A hidden column keeps the shell's default width for when it opens.
-    static func storyboardColumns(sidebar: [String]?, list: [String]?) -> (frames: [String], layout: ShellModel.Layout)? {
-        guard let folders = sidebar?.first.flatMap(splitFrame), let notes = list?.first.flatMap(splitFrame) else { return nil }
-        let total = sidebar?.last.flatMap(splitFrame).map { $0.x + $0.width } ?? 1100
-        let folderWidth = folders.isShown ? min(max(folders.width, 150), 280) : 180
-        let noteWidth = notes.isShown ? min(max(notes.width, Theme.Metrics.noteListMinimumWidth), 420) : 280
-        let detailWidth = max(320, total - folderWidth - noteWidth - 2)
-        let frames = [(0, folderWidth), (folderWidth + 1, noteWidth), (folderWidth + noteWidth + 2, detailWidth)].map {
-            String(format: "%f, %f, %f, %f, NO, NO", Double($0.0), 0.0, Double($0.1), Double(folders.height))
-        }
-        // The storyboard hides the folders with the notes, and shows the notes
-        // again when only they were hidden (ensurePanelsVisibleAtStartup).
-        let layout: ShellModel.Layout = !notes.isShown && !folders.isShown ? .noteOnly : folders.isShown ? .all : .listAndNote
-        return (frames, layout)
-    }
-
-    private struct SplitFrame {
-        let x: CGFloat
-        let width: CGFloat
-        let height: CGFloat
-        let isShown: Bool
-    }
-
-    /// One NSSplitView autosave entry: "x, y, width, height, hidden, collapsed".
-    private static func splitFrame(_ entry: String) -> SplitFrame? {
-        let fields = entry.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        guard fields.count >= 4, let x = Double(fields[0]), let width = Double(fields[2]), let height = Double(fields[3]) else { return nil }
-        let isShown = !fields.dropFirst(4).contains("YES") && width > Theme.Metrics.collapsedSplitWidthEpsilon
-        return SplitFrame(x: x, width: width, height: height, isShown: isShown)
-    }
+    // The storyboard window's column adoption was retired with the merged
+    // navigation column; the SwiftPM build starts from its own defaults.
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
@@ -331,10 +283,13 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         model.move(model.selectedNotes, to: folder)
     }
 
-    @IBAction func toggleSidebarPanel(_ sender: Any?) { model.toggleSidebar() }
-    @IBAction func toggleNoteList(_ sender: Any?) { model.toggleNoteList() }
-    @IBAction func togglePreview(_ sender: Any?) { model.togglePreview() }
-    @IBAction func toggleSplitMode(_ sender: Any?) { model.toggleSplit() }
+    @IBAction func toggleSidebarPanel(_ sender: Any?) { model.toggleNav() }
+    @IBAction func toggleNoteList(_ sender: Any?) { model.toggleNav() }
+    @IBAction func togglePreview(_ sender: Any?) { model.toggleEditorMode() }
+    /// ⌘E: the minimal source ↔ rendered toggle.
+    @IBAction func toggleEditorMode(_ sender: Any?) { model.toggleEditorMode() }
+    /// ⌘5: the outline column on or off.
+    @IBAction func toggleOutlinePanel(_ sender: Any?) { model.toggleOutline() }
     @IBAction func togglePresentation(_ sender: Any?) { model.setPresenting(!model.isPresenting) }
     @IBAction func toggleMagicPPT(_ sender: Any?) { model.setPresenting(!model.isPresenting, ppt: true) }
     @IBAction func toggleTOC(_ sender: Any?) { model.preview?.toggleTOC() }
@@ -365,7 +320,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     /// Option-Command-R: the folder while the sidebar has focus, as the
     /// storyboard's finderMenu decides, otherwise every selected note.
     @IBAction func finderMenu(_ sender: Any?) {
-        if column(of: window?.firstResponder) == .sidebar {
+        if column(of: window?.firstResponder) == .nav {
             guard let url = sidebarFolderURL else { return }
             NSWorkspace.shared.activateFileViewerSelecting([url])
             return
@@ -498,7 +453,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             view === preview || view.isDescendant(of: preview)
         {
             preview.copySelectionToPasteboard()
-        } else if column(of: responder) == .list, let note = model.selectedNote {
+        } else if column(of: responder) == .nav, let note = model.selectedNote {
             note.ensureContentLoaded()
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(note.content.string, forType: .string)
@@ -527,12 +482,12 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         guard let window, let view = window.contentView else { return }
         if model.layout != .noteOnly, let row = model.selectedRowFrame,
             let items = (window.contentViewController as? NSSplitViewController)?.splitViewItems, items.count == 3,
-            case let list = items[1].viewController.view,
-            list.bounds.insetBy(dx: 0, dy: -1).contains(NSPoint(x: row.midX, y: list.isFlipped ? row.midY : list.bounds.height - row.midY))
+            case let nav = items[0].viewController.view,
+            nav.bounds.insetBy(dx: 0, dy: -1).contains(NSPoint(x: row.midX, y: nav.isFlipped ? row.midY : nav.bounds.height - row.midY))
         {
             // SwiftUI frames run down from the hosting view's top edge.
-            let y = list.isFlipped ? row.minY + 8 : list.bounds.height - row.minY - 8
-            menu.popUp(positioning: menu.item(at: 0), at: NSPoint(x: row.minX + 20, y: y), in: list)
+            let y = nav.isFlipped ? row.minY + 8 : nav.bounds.height - row.minY - 8
+            menu.popUp(positioning: menu.item(at: 0), at: NSPoint(x: row.minX + 20, y: y), in: nav)
             return
         }
         let point = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
@@ -570,12 +525,12 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             return true
         // An export captures the preview or the deck it opened, so the mode
         // stays put until the file is written.
-        case #selector(togglePreview(_:)):
+        case #selector(togglePreview(_:)), #selector(toggleEditorMode(_:)):
             menuItem.state = model.editorMode == .preview ? .on : .off
             return hasNote && !model.isPresenting && !model.isExporting
-        case #selector(toggleSplitMode(_:)):
-            menuItem.state = model.editorMode == .split ? .on : .off
-            return hasNote && !model.isPresenting && !model.isExporting
+        case #selector(toggleOutlinePanel(_:)):
+            menuItem.state = model.isOutlineVisible ? .on : .off
+            return true
         case #selector(togglePresentation(_:)):
             // Command-4 also leaves a PPT deck, as in the storyboard window.
             menuItem.state = model.isPresenting && !model.isPPT ? .on : .off
@@ -623,7 +578,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         case #selector(exportPdf(_:)), #selector(exportImage(_:)), #selector(exportHtml(_:)), #selector(exportMenu(_:)):
             return hasNote && !model.isExporting
         case #selector(finderMenu(_:)):
-            if column(of: window?.firstResponder) == .sidebar { return sidebarFolderURL != nil && !model.isPresenting }
+            if column(of: window?.firstResponder) == .nav { return sidebarFolderURL != nil && !model.isPresenting }
             return hasNote && !model.isPresenting
         case #selector(openInTerminal(_:)):
             return terminalURL != nil
@@ -637,9 +592,9 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     // MARK: - Keyboard
 
     private enum Column {
-        case sidebar
-        case list
+        case nav
         case detail
+        case outline
     }
 
     /// Which column holds `responder`; a text field's editor sits inside it.
@@ -647,7 +602,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         guard let view = responder as? NSView,
             let items = (window?.contentViewController as? NSSplitViewController)?.splitViewItems, items.count == 3
         else { return nil }
-        let columns: [Column] = [.sidebar, .list, .detail]
+        let columns: [Column] = [.nav, .detail, .outline]
         return zip(items, columns).first { view.isDescendant(of: $0.0.viewController.view) }?.1
     }
 
@@ -676,26 +631,16 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         let isText = responder is NSTextView
         let hasNote = model.selectedNote != nil
         let column = column(of: responder)
-        // The only text field in the list column is its search field.
-        let inSearch = isText && column == .list
-        let inList = !isText && column == .list
-        let inSidebar = !isText && column == .sidebar
+        // The only text field in the navigation column is its search field.
+        let inSearch = isText && column == .nav
+        let inNav = !isText && column == .nav
 
-        if handleColumnKey(event, flags: flags, inSearch: inSearch, inList: inList, inSidebar: inSidebar) {
+        if handleColumnKey(event, flags: flags, inSearch: inSearch, inNav: inNav) {
             return nil
         }
 
         switch Int(event.keyCode) {
         case kVK_Escape:
-            // EditTextView closes the split preview's find bar through its
-            // own preview, which the shell's editor does not have.
-            if flags.isEmpty, responder === editor, !editor.hasMarkedText(), !editor.isSearchBarVisible,
-                model.editorMode == .split, let preview = model.preview, preview.isSearchBarVisible
-            {
-                preview.hideSearchBar()
-                escapeLeavesEditor = false
-                return nil
-            }
             escapeLeavesEditor =
                 flags.isEmpty && responder === editor && !editor.hasMarkedText() && !editor.isSearchBarVisible
             return event
@@ -720,15 +665,15 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // the list only, as in NotesTableView.keyUp. Text keeps them
         // (Control-Shift-P extends a selection up).
         case kVK_ANSI_P where flags == [.control, .shift]:
-            guard hasNote, !isText, column == .list, !model.isExporting, !model.isPPT else { return event }
+            guard hasNote, !isText, column == .nav, !model.isExporting, !model.isPPT else { return event }
             model.export(.pdf)
             return nil
         case kVK_ANSI_I where flags == [.control, .shift]:
-            guard hasNote, !isText, column == .list, !model.isExporting, !model.isPPT else { return event }
+            guard hasNote, !isText, column == .nav, !model.isExporting, !model.isPPT else { return event }
             model.export(.image)
             return nil
         case kVK_ANSI_P where flags == [.control, .option, .shift]:
-            guard hasNote, !isText, column == .list, !model.isExporting, !model.isPPT else { return event }
+            guard hasNote, !isText, column == .nav, !model.isExporting, !model.isPPT else { return event }
             model.export(.ppt)
             return nil
         case kVK_ANSI_I where flags == [.command, .option]:
@@ -775,19 +720,11 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
                 }
                 return nil
             }
-            // Fields submit on Return; the editor types it.
+            // Fields submit on Return; the editor types it. A note row's
+            // Return opens the note in the editor.
             guard !isText else { return event }
-            if flags == [.command], column == .list, model.layout == .all {
-                model.focusRequest = .sidebar
-                return nil
-            }
             guard flags.isEmpty else { return event }
-            if column == .sidebar {
-                if !hasNote { model.selectNext(1) }
-                model.focusRequest = .list
-                return nil
-            }
-            if column == .list, hasNote, model.editorMode != .preview {
+            if column == .nav, hasNote, model.editorMode != .preview {
                 model.focusEditor()
                 return nil
             }
@@ -855,16 +792,16 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         }
     }
 
-    // Keys the storyboard window's search field (SearchTextField), note list
-    // (NotesTableView.keyUp) and sidebar (SidebarProjectView.keyDown) take
-    // for themselves. True when the key was used.
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // Keys the merged navigation column takes for itself, folded from the
+    // storyboard window's search field (SearchTextField), note list
+    // (NotesTableView.keyUp) and sidebar (SidebarProjectView.keyDown).
+    // True when the key was used.
+    // swiftlint:disable:next cyclomatic_complexity
     private func handleColumnKey(
-        _ event: NSEvent, flags: NSEvent.ModifierFlags, inSearch: Bool, inList: Bool, inSidebar: Bool
+        _ event: NSEvent, flags: NSEvent.ModifierFlags, inSearch: Bool, inNav: Bool
     ) -> Bool {
-        guard !model.isPresenting, inSearch || inList || inSidebar else { return false }
+        guard !model.isPresenting, inSearch || inNav else { return false }
         let key = Int(event.keyCode)
-        let sidebarShown = model.layout == .all
 
         if inSearch {
             // An input method composing in the field gets Return, the arrows
@@ -884,9 +821,6 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
                 model.focusRequest = .list
                 model.selectNext(1)
                 return true
-            case kVK_LeftArrow where flags.isEmpty && model.searchText.isEmpty && sidebarShown:
-                model.focusRequest = .sidebar
-                return true
             case kVK_Tab where flags.isEmpty:
                 guard model.editorMode != .preview else { return false }
                 model.focusEditor()
@@ -896,13 +830,17 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             }
         }
 
-        if inList {
+        if inNav {
             switch key {
-            case kVK_LeftArrow where flags.isEmpty, kVK_Escape where flags.isEmpty:
-                guard sidebarShown else { return false }
-                model.focusRequest = .sidebar
+            case kVK_RightArrow where flags.isEmpty:
+                // Right expands the chosen folder; its notes are the rows
+                // under it already.
+                model.setChosenFolderExpanded(true)
                 return true
-            case kVK_RightArrow where flags.isEmpty, kVK_Tab where flags.isEmpty:
+            case kVK_LeftArrow where flags.isEmpty:
+                model.setChosenFolderExpanded(false)
+                return true
+            case kVK_Tab where flags.isEmpty:
                 // The preview has no editor to take focus; keep the key.
                 guard model.editorMode != .preview else { return false }
                 if model.selectedNote == nil { model.selectNext(1) }
@@ -911,13 +849,6 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             case kVK_ANSI_A where flags == [.command]:
                 model.selectAllNotes()
                 return true
-            default:
-                break
-            }
-        }
-
-        if inSidebar {
-            switch key {
             case kVK_F6 where flags == [.shift]:
                 guard let folder = model.selectedFolder, !folder.isDefault, !folder.isRoot else { return true }
                 model.renamingFolderURL = folder.url
@@ -925,20 +856,12 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             case kVK_Delete where flags == [.command, .shift]:
                 if let folder = model.selectedFolder { model.confirmDeleteFolder(folder) }
                 return true
-            case kVK_Tab where flags.isEmpty:
-                model.focusRequest = .search
-                return true
-            case kVK_RightArrow where flags.isEmpty:
-                // The outline opens the folder and the list takes the keys.
-                model.setChosenFolderExpanded(true)
-                if model.layout != .noteOnly { model.focusRequest = .list }
-                return true
             default:
                 break
             }
         }
 
-        // Typing a letter or digit in the list or sidebar starts a search with it.
+        // Typing a letter or digit in the navigation column starts a search with it.
         if flags.isDisjoint(with: [.command, .control]), let typed = event.characters, !typed.isEmpty,
             CharacterSet(charactersIn: typed).isSubset(of: .alphanumerics), model.layout != .noteOnly
         {
@@ -965,12 +888,12 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             for _ in 0..<10 {
                 try? await Task.sleep(for: .milliseconds(20))
                 guard let self else { return }
-                if let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .list { break }
+                if let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .nav { break }
             }
             guard let self else { return }
             let keys = self.pendingSearchKeys
             self.pendingSearchKeys = []
-            guard let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .list else { return }
+            guard let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .nav else { return }
             field.selectAll(nil)
             field.interpretKeyEvents(keys)
         }
@@ -1039,7 +962,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         {
             model.scope = row
         } else if let url = model.hoveredNoteURL,
-            column(of: window.contentView?.hitTest(event.locationInWindow)) == .list,
+            column(of: window.contentView?.hitTest(event.locationInWindow)) == .nav,
             let note = model.notes.first(where: { $0.url == url })
         {
             model.selectForMenu(note)
@@ -1274,10 +1197,10 @@ extension ShellWindowController: FileSystemEventHost {
     }
 }
 
-/// Folders, notes and the open note side by side. The split stays AppKit so
-/// the panes keep their widths when the window resizes and the dividers are
-/// remembered; each pane is SwiftUI. Plain split items, not the sidebar kind,
-/// so no translucent material appears behind the folders.
+/// Navigation, the open note and the outline side by side. The split stays
+/// AppKit so the panes keep their widths when the window resizes and the
+/// dividers are remembered; each pane is SwiftUI. Plain split items, not the
+/// sidebar kind, so no translucent material appears behind the rows.
 @available(macOS 14, *)
 final class ShellSplitViewController: NSSplitViewController {
     private let model: ShellModel
@@ -1301,35 +1224,37 @@ final class ShellSplitViewController: NSSplitViewController {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
 
-        let sidebar = NSSplitViewItem(viewController: Self.host(ShellSidebar(model: model)))
-        sidebar.minimumThickness = 150
-        // ViewController+Layout's LayoutConstants.maxSidebarWidth.
-        sidebar.maximumThickness = 280
-        sidebar.canCollapse = true
-        sidebar.holdingPriority = NSLayoutConstraint.Priority(260)
-
-        let list = NSSplitViewItem(viewController: Self.host(ShellNoteList(model: model)))
-        list.canCollapse = true
-        list.minimumThickness = Theme.Metrics.noteListMinimumWidth
-        list.maximumThickness = 420
-        list.holdingPriority = NSLayoutConstraint.Priority(255)
+        let nav = NSSplitViewItem(viewController: Self.host(ShellNav(model: model)))
+        nav.minimumThickness = Theme.Metrics.noteListMinimumWidth
+        nav.maximumThickness = 340
+        nav.canCollapse = true
+        nav.holdingPriority = NSLayoutConstraint.Priority(260)
 
         let detail = NSSplitViewItem(viewController: Self.host(ShellDetail(model: model)))
         detail.minimumThickness = 320
-        detail.holdingPriority = NSLayoutConstraint.Priority(240)
+        detail.holdingPriority = NSLayoutConstraint.Priority(250)
 
-        for item in [sidebar, list, detail] {
+        let outline = NSSplitViewItem(viewController: Self.host(ShellOutline(model: model)))
+        outline.minimumThickness = 160
+        outline.maximumThickness = 260
+        outline.canCollapse = true
+        outline.holdingPriority = NSLayoutConstraint.Priority(240)
+
+        for item in [nav, detail, outline] {
             addSplitViewItem(item)
         }
-        splitView.autosaveName = "MiaoYanShellSplit"
+        // The outline starts collapsed unless the last session left it open.
+        outline.isCollapsed = !model.isOutlineVisible
+        splitView.autosaveName = "MiaoYanShellSplitV2"
         super.viewDidLoad()
         model.host = self
         ExportHosts.shell = self
         observeLayout()
+        observeOutlineVisibility()
         observeDividerDrags()
     }
 
-    /// Collapses the folders and the list as the layout button cycles.
+    /// Collapses the navigation column as its toggle asks.
     private func observeLayout() {
         let layout = withObservationTracking {
             model.layout
@@ -1338,9 +1263,8 @@ final class ShellSplitViewController: NSSplitViewController {
         }
         let items = splitViewItems
         guard items.count == 3 else { return }
-        let sidebarCollapsed = layout != .all
-        let listCollapsed = layout == .noteOnly
-        guard items[0].isCollapsed != sidebarCollapsed || items[1].isCollapsed != listCollapsed else {
+        let navCollapsed = layout != .all
+        guard items[0].isCollapsed != navCollapsed else {
             model.layoutDidSettle()
             return
         }
@@ -1348,13 +1272,31 @@ final class ShellSplitViewController: NSSplitViewController {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Theme.Motion.change
             context.timingFunction = Theme.Motion.curve
-            items[0].animator().isCollapsed = sidebarCollapsed
-            items[1].animator().isCollapsed = listCollapsed
+            items[0].animator().isCollapsed = navCollapsed
         } completionHandler: { [weak self] in
             Task { @MainActor in
                 self?.isApplyingLayout = false
                 self?.model.layoutDidSettle()
             }
+        }
+    }
+
+    /// The outline column follows the model's visibility flag.
+    private func observeOutlineVisibility() {
+        let visible = withObservationTracking {
+            model.isOutlineVisible
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeOutlineVisibility() }
+        }
+        let items = splitViewItems
+        guard items.count == 3, items[2].isCollapsed != !visible else { return }
+        isApplyingLayout = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Theme.Motion.change
+            context.timingFunction = Theme.Motion.curve
+            items[2].animator().isCollapsed = !visible
+        } completionHandler: { [weak self] in
+            Task { @MainActor in self?.isApplyingLayout = false }
         }
     }
 
@@ -1371,7 +1313,7 @@ final class ShellSplitViewController: NSSplitViewController {
             MainActor.assumeIsolated {
                 guard let self, !self.isApplyingLayout, self.splitViewItems.count == 3 else { return }
                 let items = self.splitViewItems
-                self.model.syncLayout(sidebarCollapsed: items[0].isCollapsed, listCollapsed: items[1].isCollapsed)
+                self.model.syncLayout(navCollapsed: items[0].isCollapsed)
             }
         }
     }
@@ -1381,9 +1323,8 @@ final class ShellSplitViewController: NSSplitViewController {
         guard !hasAppliedDefaultWidths else { return }
         hasAppliedDefaultWidths = true
         // First launch only: the autosaved positions win afterwards.
-        if UserDefaults.standard.object(forKey: "NSSplitView Subview Frames MiaoYanShellSplit") == nil {
-            splitView.setPosition(180, ofDividerAt: 0)
-            splitView.setPosition(180 + 1 + 280, ofDividerAt: 1)
+        if UserDefaults.standard.object(forKey: "NSSplitView Subview Frames MiaoYanShellSplitV2") == nil {
+            splitView.setPosition(260, ofDividerAt: 0)
         }
     }
 

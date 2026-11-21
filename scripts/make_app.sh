@@ -93,6 +93,7 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleIconFile</key><string>$APP_NAME.icns</string>
+  <key>CFBundleIconName</key><string>$APP_NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleSignature</key><string>????</string>
   <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>

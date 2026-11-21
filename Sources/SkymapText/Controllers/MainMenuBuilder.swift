@@ -134,7 +134,8 @@ enum MainMenuBuilder {
         format.addItem(.separator())
         format.addItem(item(title("Link"), action: #selector(EditTextView.linkMenu(_:)), key: "k"))
         format.addItem(item(title("Todo"), action: #selector(EditTextView.todoMenu(_:)), key: "t"))
-        format.addItem(item(title("Inline Code"), action: #selector(EditTextView.inlineCodeMenu(_:)), key: "e"))
+        // Inline code gave its Command-E to the editor's two-state toggle.
+        format.addItem(item(title("Inline Code"), action: #selector(EditTextView.inlineCodeMenu(_:))))
         format.addItem(item(title("Code Block"), action: #selector(EditTextView.codeBlockMenu(_:)), key: "E"))
         format.addItem(.separator())
 
@@ -171,13 +172,12 @@ enum MainMenuBuilder {
         let view = NSMenu(title: title("View"))
         viewMenuItem.submenu = view
 
-        view.addItem(item(title("Hide/Show Sidebar"), action: #selector(ShellWindowController.toggleSidebarPanel(_:)), key: "1"))
-        view.addItem(item(title("Hide/Show NoteList"), action: #selector(ShellWindowController.toggleNoteList(_:)), key: "2"))
-        view.addItem(item(title("Toggle Preview"), action: #selector(ShellWindowController.togglePreview(_:)), key: "3"))
-        view.addItem(item(title("Toggle Split View"), action: #selector(ShellWindowController.toggleSplitMode(_:)), key: "\\"))
-        view.addItem(item(title("Toggle Presentation"), action: #selector(ShellWindowController.togglePresentation(_:)), key: "4"))
-        view.addItem(item(title("MiaoYan PPT"), action: #selector(ShellWindowController.toggleMagicPPT(_:)), key: "p", modifiers: [.command, .option]))
-        view.addItem(item(title("Toggle TOC"), action: #selector(ShellWindowController.toggleTOC(_:)), key: "5"))
+        // The merged window: one navigation column, an outline column and
+        // the editor's two states. The split, presentation and PPT entries
+        // of the storyboard window were retired with their modes.
+        view.addItem(item(title("Hide/Show Navigation"), action: #selector(ShellWindowController.toggleSidebarPanel(_:)), key: "1"))
+        view.addItem(item(title("Hide/Show Outline"), action: #selector(ShellWindowController.toggleOutlinePanel(_:)), key: "5"))
+        view.addItem(item(title("Toggle Preview"), action: #selector(ShellWindowController.toggleEditorMode(_:)), key: "e"))
         view.addItem(.separator())
 
         let sortMenuItem = NSMenuItem(title: title("Sort By"), action: nil, keyEquivalent: "")

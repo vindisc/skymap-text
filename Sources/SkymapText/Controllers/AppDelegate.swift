@@ -533,22 +533,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 }
             }
 
-            if event.keyCode == 35 || key == "p",  // kVK_ANSI_P
-                flags == [.command, .option]
-            {
-                if let vc = self.resolveViewController() {
-                    vc.toggleMagicPPT(self)
-                    return nil
-                }
-                if #available(macOS 14, *), let shell = self.shellWindowController as? ShellWindowController {
-                    let model = shell.model
-                    // An export keeps the mode it captures until it is written.
-                    if !model.isExporting {
-                        model.setPresenting(!(model.isPresenting && model.isPPT), ppt: true)
-                    }
-                    return nil
-                }
-            }
+            // The presentation and PPT entries were retired with the merged
+            // navigation column; their code paths stay for the storyboard
+            // window on main.
 
             return event
         }

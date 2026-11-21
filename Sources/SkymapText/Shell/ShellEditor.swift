@@ -336,9 +336,9 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
 
     private var lineStartsCache: [Int]?
     private var lineStartsLength = -1
-    private var frontmatterLines = 0
+    private(set) var frontmatterLines = 0
 
-    private func lineStarts() -> [Int] {
+    func lineStarts() -> [Int] {
         let text = textView.string
         let length = (text as NSString).length
         if let cached = lineStartsCache, lineStartsLength == length { return cached }
@@ -349,9 +349,24 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
         return starts
     }
 
+    /// Called wherever the line mapping went stale, so the outline column
+    /// can re-derive its entries.
+    var onOutlineDirty: (() -> Void)?
+
     private func invalidateLineStarts() {
         lineStartsCache = nil
         lineStartsLength = -1
+        onOutlineDirty?()
+    }
+
+    /// Scrolls the editor so the heading at buffer line `line` (0-based)
+    /// sits near the top, for outline jumps.
+    func scrollToBufferLine(_ line: Int) {
+        let starts = lineStarts()
+        guard let y = textView.documentY(ofSourceLine: line, fraction: 0, lineStarts: starts) else { return }
+        let offset = max(y - 24, 0)
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: offset))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     // MARK: - Split view

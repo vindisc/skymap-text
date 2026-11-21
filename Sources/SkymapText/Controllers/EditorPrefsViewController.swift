@@ -3,7 +3,6 @@ import Cocoa
 @MainActor
 final class EditorPrefsViewController: BasePrefsViewController {
     private var settings = EditorSettings()
-    private var defaultModeDropdown: PrefsDropdown!
     private var uploadDropdown: PrefsDropdown!
     private var lineBreakDropdown: PrefsDropdown!
     private var lineBreakRow: PrefsRowView!
@@ -12,24 +11,7 @@ final class EditorPrefsViewController: BasePrefsViewController {
 
     private static let previewWidths = ["600px", "800px", "1000px", "1200px", "1400px"]
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        NotificationCenter.default.addObserver(self, selector: #selector(handleSplitViewModeChanged), name: .splitViewModeChanged, object: nil)
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    @objc private func handleSplitViewModeChanged() {
-        defaultModeDropdown?.selectOption { $0 as? Bool == UserDefaultsManagement.splitViewMode }
-    }
-
     override func setupUI() {
-        defaultModeDropdown = makeDropdown(action: #selector(defaultModeChanged(_:)))
-        defaultModeDropdown.addOption(I18n.str("Editing"), value: false)
-        defaultModeDropdown.addOption(I18n.str("Split"), value: true)
-
         uploadDropdown = makeDropdown(action: #selector(uploadServiceChanged(_:)))
         uploadDropdown.addOption(I18n.str("None"), value: "None")
         for service in ["uPic", "PicGo", "Picsee", "PicList"] {
@@ -54,7 +36,8 @@ final class EditorPrefsViewController: BasePrefsViewController {
 
         addSections([
             [
-                PrefsRowView(title: I18n.str("Default Mode"), detail: I18n.str("Write alone, or with the preview beside it"), controls: [defaultModeDropdown]),
+                // The default mode row went with the split mode: Command-E
+                // toggles the editor's two states now.
                 PrefsRowView(title: I18n.str("Image Upload"), detail: I18n.str("Send pasted images through an uploader app"), controls: [uploadDropdown]),
             ],
             [
@@ -73,7 +56,6 @@ final class EditorPrefsViewController: BasePrefsViewController {
     }
 
     override func setupValues() {
-        defaultModeDropdown.selectOption { $0 as? Bool == UserDefaultsManagement.splitViewMode }
         uploadDropdown.selectOption { $0 as? String == UserDefaultsManagement.defaultPicUpload }
         lineBreakDropdown.selectOption { $0 as? String == settings.editorLineBreak }
         previewLocationDropdown.selectOption { $0 as? String == settings.previewLocation }
@@ -88,19 +70,6 @@ final class EditorPrefsViewController: BasePrefsViewController {
             settings.editorLineBreak == "Github"
             ? I18n.str("A new line in the preview needs a blank line")
             : I18n.str("Each newline starts a new line in the preview")
-    }
-
-    // MARK: - Actions
-
-    @objc private func defaultModeChanged(_ sender: PrefsDropdown) {
-        guard let isSplit = sender.selectedItem?.representedObject as? Bool else { return }
-        if let vc = ViewController.shared() {
-            vc.sessionSplitMode = isSplit
-            vc.applyEditorModePreferenceChange()
-        } else {
-            UserDefaultsManagement.splitViewMode = isSplit
-            NotificationCenter.default.post(name: .editorSettingsChanged, object: nil)
-        }
     }
 
     @objc private func lineBreakChanged(_ sender: PrefsDropdown) {

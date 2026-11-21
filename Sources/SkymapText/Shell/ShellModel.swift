@@ -126,11 +126,12 @@ final class ShellModel {
         case split
     }
 
-    /// The old window's list button cycles through the same three layouts:
-    /// hide the folders, then the list, then bring them back in reverse.
+    /// The merged navigation column is either shown or hidden; the outline
+    /// column has its own toggle. (The three-column layouts of the
+    /// storyboard window were retired with the merged column; old stored
+    /// values fall back to `.all` through the raw-value init.)
     enum Layout: String {
         case all
-        case listAndNote
         case noteOnly
     }
 
@@ -148,18 +149,50 @@ final class ShellModel {
             UserDefaults.standard.set(layout.rawValue, forKey: Self.layoutKey)
         }
     }
-    /// What the note column shows: the editor, the preview, or both. Kept
-    /// in the same preferences the storyboard window restores its mode from.
+    /// What the note column shows: the editor or the rendered preview. Kept
+    /// in the same preference the storyboard window restores its mode from.
     private(set) var editorMode = EditorMode.edit {
         didSet {
             UserDefaultsManagement.preview = editorMode == .preview
-            // Preview leaves the split setting alone, so leaving it returns
-            // to split when split was on, as in the storyboard window.
-            if editorMode != .preview {
-                UserDefaultsManagement.splitViewMode = editorMode == .split
-            }
-            editor.attachSplitPreview(editorMode == .split ? preview : nil)
         }
+    }
+    /// The merged navigation column: folder rows with the chosen scope's
+    /// notes inlined beneath the folder they belong to. The id is computed
+    /// where the rows are built (the main actor), since a `Note` is not
+    /// reachable from a nonisolated context.
+    struct NavRow: Identifiable {
+        enum Kind {
+            case folder(SidebarRow, isScope: Bool)
+            case section(String)
+            case note(Note, indent: Int)
+        }
+
+        let id: String
+        let kind: Kind
+    }
+    /// Rows the navigation column renders, rebuilt with the sidebar and the
+    /// note list together.
+    private(set) var navRows: [NavRow] = []
+    /// Headings of the open note for the outline column. `bufferLine` is the
+    /// 0-based line in the editor buffer, the mapping the split math and the
+    /// preview's scroll sync already share.
+    struct OutlineEntry: Identifiable, Equatable {
+        let level: Int
+        let title: String
+        let bufferLine: Int
+
+        var id: Int { bufferLine }
+    }
+    private(set) var outline: [OutlineEntry] = []
+    var isOutlineVisible = UserDefaults.standard.bool(forKey: "ShellOutlineVisible") {
+        didSet {
+            guard isOutlineVisible != oldValue else { return }
+            UserDefaults.standard.set(isOutlineVisible, forKey: "ShellOutlineVisible")
+            if isOutlineVisible { refreshOutline() }
+        }
+    }
+    func toggleOutline() {
+        isOutlineVisible.toggle()
     }
     /// Bumped when the open note changed outside the editor (disk, version
     /// restore); the preview re-renders in place. Typing reaches the split
@@ -171,7 +204,6 @@ final class ShellModel {
     @ObservationIgnored let editor = ShellEditorController()
     /// Where toasts appear; set by the window's split controller.
     @ObservationIgnored weak var host: NSViewController?
-    @ObservationIgnored private var isUnfolding = false
     @ObservationIgnored private var pendingSnippets: Set<URL> = []
 
     var scope: Scope = .all {
@@ -319,11 +351,12 @@ final class ShellModel {
         expandedFolders = Self.storedExpandedFolders()
         scope = storedScope()
         layout = UserDefaults.standard.string(forKey: Self.layoutKey).flatMap(Layout.init(rawValue:)) ?? .all
+        // Split was retired with the merged navigation column; a session
+        // that quit in split comes back editing.
         if UserDefaultsManagement.preview {
             editorMode = .preview
-        } else if UserDefaultsManagement.splitViewMode {
-            editorMode = .split
         }
+        UserDefaultsManagement.splitViewMode = false
         // A presentation is never resumed at launch, as in the storyboard window.
         UserDefaultsManagement.presentation = false
         UserDefaultsManagement.magicPPT = false
@@ -331,6 +364,9 @@ final class ShellModel {
         rebuildLinkIndex()
         editor.onContentChange = { [weak self] in
             self?.scheduleSavedNoteRefresh()
+        }
+        editor.onOutlineDirty = { [weak self] in
+            self?.refreshOutline()
         }
         editor.onFormattingChange = { [weak self] formatting in
             self?.isFormatting = formatting
@@ -425,6 +461,7 @@ final class ShellModel {
         if !sidebarRows.contains(where: { $0.id == scope }) {
             scope = .all
         }
+        computeNavRows()
         refreshNotes(keepSelection: true)
     }
 
@@ -497,30 +534,13 @@ final class ShellModel {
     }
 
     func cycleLayout() {
-        guard !isPresenting else { return }
-        switch layout {
-        case .all:
-            layout = .listAndNote
-            isUnfolding = false
-        case .listAndNote:
-            layout = isUnfolding ? .all : .noteOnly
-            isUnfolding = false
-        case .noteOnly:
-            layout = .listAndNote
-            isUnfolding = true
-        }
+        toggleNav()
     }
 
-    /// ⌘1: the folders column on or off.
-    func toggleSidebar() {
+    /// ⌘1: the merged navigation column on or off.
+    func toggleNav() {
         guard !isPresenting else { return }
-        layout = layout == .all ? .listAndNote : .all
-    }
-
-    /// ⌘2: the note list on or off; showing it again keeps the folders hidden.
-    func toggleNoteList() {
-        guard !isPresenting else { return }
-        layout = layout == .noteOnly ? .listAndNote : .noteOnly
+        layout = layout == .all ? .noteOnly : .all
     }
 
     func cleanTypography() {
@@ -549,25 +569,18 @@ final class ShellModel {
         return NoteListDate.short(date, locale: Note.listDateLocale)
     }
 
-    /// Leaving preview returns to split when split was on.
-    private var modeAfterPreview: EditorMode {
-        UserDefaultsManagement.splitViewMode ? .split : .edit
-    }
+    /// Leaving preview always returns to editing; the split mode was
+    /// retired with the merged navigation column.
+    private var modeAfterPreview: EditorMode { .edit }
 
     func togglePreview() {
         guard !isPresenting, !isExporting else { return }
         setMode(editorMode == .preview ? modeAfterPreview : .preview)
     }
 
-    /// From preview, the storyboard window flips split and leaves preview
-    /// into whichever mode that gives.
-    func toggleSplit() {
-        guard !isPresenting, !isExporting else { return }
-        if editorMode == .preview {
-            setMode(modeAfterPreview == .split ? .edit : .split)
-        } else {
-            setMode(editorMode == .split ? .edit : .split)
-        }
+    /// ⌘E: the minimal two-state editor, source or rendered.
+    func toggleEditorMode() {
+        togglePreview()
     }
 
     /// What preview does once its page is ready: scroll to the line being
@@ -823,13 +836,9 @@ final class ShellModel {
         return String(before[..<head]) + line + String(before[(before.count - tail)...])
     }
 
-    /// The preview currently on screen, for commands that act on it (TOC).
-    /// The split preview also scrolls with the editor.
-    @ObservationIgnored weak var preview: MPreviewView? {
-        didSet {
-            editor.attachSplitPreview(editorMode == .split ? preview : nil)
-        }
-    }
+    /// The preview currently on screen, for commands that act on it (TOC,
+    /// outline jumps in the rendered mode).
+    @ObservationIgnored weak var preview: MPreviewView?
 
     enum FocusTarget {
         case sidebar
@@ -855,7 +864,7 @@ final class ShellModel {
         }
         isSearchOpen = true
         focusAfterLayout = .search
-        toggleNoteList()
+        toggleNav()
     }
 
     /// The window has finished opening or closing columns.
@@ -1359,13 +1368,8 @@ final class ShellModel {
             interfaceFont = UserDefaultsManagement.windowFontName
             interfaceRevision &+= 1
         }
-        // Settings writes splitViewMode directly when there is no
-        // ViewController; follow it, or the next mode toggle overwrote it.
-        if UserDefaultsManagement.splitViewMode, editorMode == .edit {
-            editorMode = .split
-        } else if !UserDefaultsManagement.splitViewMode, editorMode == .split {
-            editorMode = .edit
-        }
+        // The split preference no longer drives anything; the editor stays
+        // in its two states whatever Settings wrote.
     }
 
     /// Chosen faces that were not installed when last checked.
@@ -1543,26 +1547,21 @@ final class ShellModel {
 
     // MARK: - Columns
 
-    /// A divider dragged until a column collapsed, or back open: the layout
-    /// follows, so the toggles and the next launch agree with what is shown.
-    /// Hiding the list hides the folders too, as in the storyboard window.
-    func syncLayout(sidebarCollapsed: Bool, listCollapsed: Bool) {
+    /// A divider dragged until the navigation column collapsed, or back
+    /// open: the layout follows, so the toggle and the next launch agree
+    /// with what is shown.
+    func syncLayout(navCollapsed: Bool) {
         guard !isPresenting else { return }
-        let shown: Layout = listCollapsed ? .noteOnly : sidebarCollapsed ? .listAndNote : .all
+        let shown: Layout = navCollapsed ? .noteOnly : .all
         if shown != layout { layout = shown }
     }
 
-    /// A two-finger swipe left hides the folders, then the list; a swipe
-    /// right brings the list back, then the folders (ViewController's swipe).
+    /// A two-finger swipe left hides the navigation column, a swipe right
+    /// brings it back (ViewController's swipe).
     func swipeColumns(left: Bool) {
         guard !isPresenting else { return }
-        switch (left, layout) {
-        case (true, .all): layout = .listAndNote
-        case (true, .listAndNote): layout = .noteOnly
-        case (false, .noteOnly): layout = .listAndNote
-        case (false, .listAndNote): layout = .all
-        default: break
-        }
+        let shown: Layout = left ? .noteOnly : .all
+        if shown != layout { layout = shown }
     }
 
     // MARK: - Version history
@@ -1687,11 +1686,93 @@ final class ShellModel {
         guard !Task.isCancelled else { return }
         notes = ordered
         sections = terms.isEmpty ? Self.group(ordered) : [NoteSection(id: "results", title: nil, notes: ordered)]
+        computeNavRows()
         if !(keepSelection && ordered.contains(where: { $0.url == selectedNoteURL })) {
             selectedNoteURL = ordered.first?.url
         }
         let content = ListContent(scope: listedScope, isSearch: !terms.isEmpty)
         if listContent != content { listContent = content }
+    }
+
+    /// Interleaves the folder tree with the chosen scope's notes: under the
+    /// folder row that is the scope, its sections and notes follow, so one
+    /// column serves both as the folder tree and the note list.
+    private func computeNavRows() {
+        var rows: [NavRow] = []
+        func injectScopeNotes(indent: Int) {
+            if sections.count == 1, sections[0].title == nil {
+                for note in sections[0].notes {
+                    rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
+                }
+            } else {
+                for section in sections {
+                    if let title = section.title {
+                        rows.append(NavRow(id: "section:" + title, kind: .section(title)))
+                    }
+                    for note in section.notes {
+                        rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
+                    }
+                }
+            }
+        }
+        for row in sidebarRows {
+            let isScope = row.id == scope
+            rows.append(NavRow(id: "folder:" + row.id.storedValue, kind: .folder(row, isScope: isScope)))
+            if isScope { injectScopeNotes(indent: row.depth + 1) }
+        }
+        navRows = rows
+    }
+
+    // MARK: - Outline
+
+    /// Headings of the open note, from the live editor buffer when it holds
+    /// the note and from the note content otherwise (preview mode). Cheap
+    /// enough to recompute on every edit once the column is open.
+    func refreshOutline() {
+        guard isOutlineVisible, let note = selectedNote else {
+            if !outline.isEmpty { outline = [] }
+            return
+        }
+        let text: String
+        if editor.textView.storageNote === note {
+            text = editor.textView.string
+        } else {
+            guard note.isContentLoaded, !note.loadFailed else {
+                if !outline.isEmpty { outline = [] }
+                return
+            }
+            text = note.content.string
+        }
+        var entries: [OutlineEntry] = []
+        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+            // ATX headings, optionally indented up to three spaces and closed
+            // by trailing hashes, as CommonMark reads them.
+            var level = 0
+            var cursor = line.startIndex
+            while cursor < line.endIndex, line[cursor] == " ", level <= 3 { cursor = line.index(after: cursor) }
+            while cursor < line.endIndex, line[cursor] == "#", level < 6 {
+                level += 1
+                cursor = line.index(after: cursor)
+            }
+            guard level >= 1, cursor < line.endIndex, line[cursor] == " " else { continue }
+            var title = String(line[line.index(after: cursor)...]).trimmingCharacters(in: .whitespaces)
+            while title.hasSuffix("#") { title.removeLast() }
+            title = title.trimmingCharacters(in: .whitespaces)
+            guard !title.isEmpty else { continue }
+            entries.append(OutlineEntry(level: level, title: title, bufferLine: index))
+        }
+        if entries != outline { outline = entries }
+    }
+
+    /// An outline row click: scroll the editor to the heading, or the
+    /// preview when the rendered mode is showing.
+    func outlineJump(_ entry: OutlineEntry) {
+        if editorMode == .preview, let preview = preview {
+            let frontmatterLines = editor.textView.storageNote === selectedNote ? editor.frontmatterLines : 0
+            preview.scrollToLine(ShellSplitMath.previewLine(bufferLine: entry.bufferLine, fraction: 0, frontmatterLines: frontmatterLines))
+        } else {
+            editor.scrollToBufferLine(entry.bufferLine)
+        }
     }
 
     /// Notes' grouping: pinned first, then Today, Yesterday, the months of
