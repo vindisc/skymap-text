@@ -54,7 +54,9 @@ mkdir -p "$RESOURCES_DIR/Fonts"
 for ttf in "$ROOT_DIR"/Resources/Fonts/*.ttf(N); do
   cp "$ttf" "$RESOURCES_DIR/Fonts/"
 done
-cp "$ROOT_DIR/Resources/Markdown.icns" "$RESOURCES_DIR/$APP_NAME.icns"
+# The app icon is MiaoYan's own app.icns; Markdown.icns is the
+# document-type icon and read as a wrong Dock glyph.
+cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/$APP_NAME.icns"
 
 # Localization: every lproj keeps its strings tables (Main.strings included
 # so the programmatic menu can localize its titles). InfoPlist.strings is

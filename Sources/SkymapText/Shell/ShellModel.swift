@@ -163,7 +163,6 @@ final class ShellModel {
     struct NavRow: Identifiable {
         enum Kind {
             case folder(SidebarRow, isScope: Bool)
-            case section(String, indent: Int)
             case note(Note, indent: Int)
             case hint(String, indent: Int)
         }
@@ -568,14 +567,6 @@ final class ShellModel {
         return sidebarRows.first { $0.id == scope }?.title ?? ""
     }
 
-    /// The list row date, `NoteListDate` as the storyboard list and the
-    /// iPhone show it, in the app's own language.
-    static func rowDate(for note: Note) -> String {
-        let date =
-            (UserDefaultsManagement.sort == .creationDate || note.project.sortBy == .creationDate
-                ? note.creationDate : nil) ?? note.modifiedLocalAt
-        return NoteListDate.short(date, locale: Note.listDateLocale)
-    }
 
     /// Leaving preview always returns to editing; the split mode was
     /// retired with the merged navigation column.
@@ -1654,7 +1645,7 @@ final class ShellModel {
             switch navRows[next].kind {
             case .folder, .note:
                 break rowLoop
-            case .section, .hint:
+            case .hint:
                 // Unselectable rows are stepped over; at the edge, stop.
                 if next == 0 || next == navRows.count - 1 { return }
                 continue
@@ -1751,8 +1742,10 @@ final class ShellModel {
     }
 
     /// Interleaves the folder tree with the chosen scope's notes: under the
-    /// folder row that is the scope, its sections and notes follow, so one
-    /// column serves both as the folder tree and the note list.
+    /// folder row that is the scope, its notes follow in sort order, so one
+    /// column serves both as the folder tree and the note list. Date-group
+    /// headings and row dates are not shown — a title list stays a title
+    /// list.
     private func computeNavRows() {
         var rows: [NavRow] = []
         func injectScopeNotes(indent: Int) {
@@ -1764,21 +1757,8 @@ final class ShellModel {
                 rows.append(NavRow(id: "hint:" + scope.storedValue, kind: .hint(hint, indent: indent)))
                 return
             }
-            if sections.count == 1, sections[0].title == nil {
-                for note in sections[0].notes {
-                    rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
-                }
-            } else {
-                // Section ids repeat across years ("month-11" twice), so the
-                // row id keys on the position instead of the id or title.
-                for (index, section) in sections.enumerated() {
-                    if let title = section.title {
-                        rows.append(NavRow(id: "section:\(scope.storedValue):\(index)", kind: .section(title, indent: indent)))
-                    }
-                    for note in section.notes {
-                        rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
-                    }
-                }
+            for note in notes {
+                rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
             }
         }
         for row in sidebarRows {

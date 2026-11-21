@@ -285,8 +285,6 @@ struct ShellNav: View {
                     navFocused = true
                 }
                 .accessibilityAction { model.scope = sidebarRow.id }
-        case .section(let title, let indent):
-            ShellSectionHeader(title: title, indent: indent)
         case .note(let note, let indent):
             noteRow(note, indent: indent)
         case .hint(let text, let indent):
@@ -307,7 +305,6 @@ struct ShellNav: View {
         let isSelected = model.isSelected(note)
         return ShellNoteRow(
             note: note,
-            date: ShellModel.rowDate(for: note),
             isSelected: isSelected,
             indent: indent
         )
@@ -620,31 +617,12 @@ private struct ShellScrollViewProbe: NSViewRepresentable {
     }
 }
 
-@available(macOS 14, *)
-private struct ShellSectionHeader: View {
-    let title: String
-    /// How deep the headed notes sit under their folder; the heading's text
-    /// follows them while its row spans the column.
-    var indent: Int = 0
-
-    var body: some View {
-        let size = CGFloat(UserDefaultsManagement.dateFontSize)
-        ShellBoldText(string: title, size: size)
-            .foregroundStyle(ShellStyle.tertiaryText)
-            .padding(.leading, 20 + CGFloat(indent) * 16)
-            .padding(.trailing, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 4)
-    }
-}
-
-/// A note row: the title and its date on one line, at the folder rows' 30pt
-/// rhythm — no opening snippet, whose two lines made the column read as a
+/// A note row: just the title on one line, at the folder rows' 30pt rhythm —
+/// no opening snippet and no date, whose apparatus made the column read as a
 /// draft sheet. The open note sits on the sand plate.
 @available(macOS 14, *)
 private struct ShellNoteRow: View {
     let note: Note
-    let date: String
     let isSelected: Bool
     /// How deep the note sits under its folder. Only the text moves with it;
     /// the plate spans the row like the folder rows' do.
@@ -652,7 +630,6 @@ private struct ShellNoteRow: View {
 
     var body: some View {
         let nameSize = CGFloat(UserDefaultsManagement.nameFontSize)
-        let dateSize = CGFloat(UserDefaultsManagement.dateFontSize)
         let titleText = Text(title)
             .font(ShellStyle.interface(nameSize))
             .kerning(ShellStyle.tracking(nameSize))
@@ -674,12 +651,7 @@ private struct ShellNoteRow: View {
                     .frame(width: 10, height: 10)
                     .foregroundStyle(ShellStyle.tertiaryText)
             }
-            Spacer(minLength: 8)
-            Text(date)
-                .font(ShellStyle.interface(dateSize))
-                .kerning(ShellStyle.tracking(dateSize))
-                .foregroundStyle(ShellStyle.tertiaryText)
-                .lineLimit(1)
+            Spacer(minLength: 0)
         }
         .padding(.leading, 20 + CGFloat(indent) * 16)
         .padding(.trailing, 16)
@@ -693,11 +665,10 @@ private struct ShellNoteRow: View {
                     .fill(ShellStyle.selection)
             }
         }
-        // VoiceOver reads a row as one item: the title, then its date; the
-        // list's tap action is its default action.
+        // VoiceOver reads a row as one item named after the note; the list's
+        // tap action is its default action.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue(date)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
