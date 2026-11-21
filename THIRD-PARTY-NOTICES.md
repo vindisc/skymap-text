@@ -1226,3 +1226,12 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ```
+
+---
+
+## DingTalk JinBuTi (钉钉进步体)
+
+Bundled as `Resources/Fonts/DingTalk JinBuTi.ttf` and registered per-process
+as the application's interface face. Copyright © Alibaba (DingTalk); free for
+personal and commercial use under DingTalk's font license, per its official
+statement. Full note: `Resources/Fonts/DingTalk JinBuTi License.txt`.

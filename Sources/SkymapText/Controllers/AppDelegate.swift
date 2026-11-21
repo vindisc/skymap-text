@@ -56,6 +56,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     func applicationWillFinishLaunching(_ notification: Notification) {
         migratePreferences()
         UserDefaultsManagement.migrateFontDefaultsIfNeeded()
+        // The bundled JinBuTi face is registered here, before the first row
+        // resolves its font, and the interface face moves to it once.
+        FontConfiguration.migrateInterfaceFontToJinBuTi()
         UserDefaultsManagement.clearSingleMode()
         let storage = appContext.storage
         storage.loadProjects()

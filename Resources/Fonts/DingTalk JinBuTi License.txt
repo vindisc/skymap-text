@@ -1,0 +1,9 @@
+钉钉进步体（DingTalk JinBuTi）
+================================
+
+来源：Alibaba DingTalk 官方发布的免费字体，本文件取自 skymap-mac/assets/fonts。
+版权 © Alibaba（钉钉）。依钉钉字体官方声明，允许个人与商业场景免费使用、
+无须另行授权；请在分发包中保留本声明。
+
+PostScript 名：DingTalk-JinBuTi（单字重，无粗体/斜体变体）
+用途：SkymapText 应用界面字体（编辑器与预览的字体仍由用户在设置中自选）
