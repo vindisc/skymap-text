@@ -354,7 +354,9 @@ class HtmlManager {
             let paddingStyle = UserDefaultsManagement.isOnExportHtml ? " padding-top: 24px" : ""
 
             var maxWidth = UserDefaultsManagement.previewWidth == UserDefaultsManagement.FullWidthValue ? "100%" : UserDefaultsManagement.previewWidth
-            var writeCSS = "max-width: \(maxWidth); margin: 0"
+            // A centered measure reads as a page; margin: 0 pinned it to the
+            // left edge with dead space on the right, which read as a draft.
+            var writeCSS = "max-width: \(maxWidth); margin: 0 auto"
 
             if UserDefaultsManagement.isOnExportHtml {
                 maxWidth = "760px"

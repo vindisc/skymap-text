@@ -29,6 +29,59 @@
   --hljs-number: #F7CC8F;
   --hljs-attribute: #F7CC8F;
   --hljs-title: #99E0FC;
+
+  /* Tables and framed media */
+  --table-rule-color: #4A4843;
+  --table-head-bg: rgba(84, 197, 159, 0.07);
+  --img-outline: rgba(214, 209, 198, 0.12);
+}
+
+/* `.darkmode *` flattens element colours with equal specificity and wins
+   the cascade over typography.css, so the code tokens restate themselves
+   here or dark code blocks come out monochrome. */
+.darkmode .hljs {
+  color: var(--hljs-base);
+}
+
+.darkmode .hljs-comment,
+.darkmode .hljs-quote,
+.darkmode .hljs-variable,
+.darkmode .hljs-doctag {
+  color: var(--hljs-comment);
+}
+
+.darkmode .hljs-built_in,
+.darkmode .hljs-keyword,
+.darkmode .hljs-name,
+.darkmode .hljs-selector-tag,
+.darkmode .hljs-tag {
+  color: var(--hljs-keyword);
+}
+
+.darkmode .hljs-addition,
+.darkmode .hljs-attribute,
+.darkmode .hljs-literal,
+.darkmode .hljs-section,
+.darkmode .hljs-string,
+.darkmode .hljs-template-tag,
+.darkmode .hljs-template-variable,
+.darkmode .hljs-title,
+.darkmode .hljs-type {
+  color: var(--hljs-string);
+}
+
+.darkmode .hljs-deletion,
+.darkmode .hljs-meta,
+.darkmode .hljs-selector-attr,
+.darkmode .hljs-selector-pseudo,
+.darkmode .hljs-attr {
+  color: var(--hljs-attribute);
+}
+
+.darkmode .hljs-bullet,
+.darkmode .hljs-link,
+.darkmode .hljs-symbol {
+  color: var(--hljs-title);
 }
 
 /* Dark Mode Base Styles */
@@ -124,4 +177,23 @@
 
 .darkmode .lightense-backdrop {
   background-color: rgba(30, 29, 27, .95) !important;
+}
+
+/* The horizontal-hairline tables: the whole-table code plate above would
+   read as a block behind the rows, so the band moves to the header only. */
+.darkmode .heti table {
+  background-color: transparent;
+}
+
+.darkmode .heti th {
+  background: var(--table-head-bg);
+  border-block-end-color: var(--table-rule-color);
+}
+
+.darkmode .heti td {
+  border-block-end-color: var(--border-color);
+}
+
+.darkmode .heti tr:last-child td {
+  border-block-end: 0;
 }

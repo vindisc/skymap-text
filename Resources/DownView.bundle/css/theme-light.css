@@ -27,6 +27,11 @@
   --hljs-attribute: #e36209;
   --hljs-title: #6f42c1;
 
+  /* Tables and framed media */
+  --table-rule-color: #D8D5C9;
+  --table-head-bg: rgba(28, 93, 51, 0.05);
+  --img-outline: rgba(38, 38, 38, 0.1);
+
   /* Mermaid Diagram */
   --mermaid-node-bg: #FDFCF9;
   --mermaid-text-color: #262626;
