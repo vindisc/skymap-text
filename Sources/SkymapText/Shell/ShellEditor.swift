@@ -143,7 +143,9 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
 
     override init() {
         scrollView = ShellEditorScrollView()
-        scrollView.hasVerticalScroller = true
+        // No scrollbar indicator: the user's call — wheel, trackpad and
+        // keyboard scrolling all still work, the pane just shows no bar.
+        scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
