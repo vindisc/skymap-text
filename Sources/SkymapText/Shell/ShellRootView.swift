@@ -26,7 +26,6 @@ enum ShellStyle {
     static var icon: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.icon) }
     static var selection: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.listSelection) }
     static var hairline: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.hairline) }
-    static var noteRowHairline: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.noteRowHairline) }
     static var field: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.field) }
     static var sidebarSelection: SwiftUI.Color { SwiftUI.Color(nsColor: ShellPalette.sidebarSelection) }
 
@@ -39,13 +38,6 @@ enum ShellStyle {
 
     static func tracking(_ size: CGFloat) -> CGFloat {
         size * UserDefaultsManagement.letterSpacingEm
-    }
-
-    /// The brand wordmark, the storyboard window's face (`Theme.brandWordmarkFont`),
-    /// falling back to the interface face.
-    static func brandWordmark(_ title: String, size: CGFloat) -> SwiftUI.Font {
-        if let font = Theme.brandWordmarkFont(for: title, size: size) { return SwiftUI.Font(font) }
-        return interface(size)
     }
 
     /// Spacing that sets multi-line text at 1.45em. `lineSpacing` adds to the
@@ -249,7 +241,7 @@ struct ShellNav: View {
             }
             .onChange(of: model.focusRequest) { _, request in
                 switch request {
-                case .sidebar, .list:
+                case .list:
                     navFocused = true
                 case .search:
                     model.isSearchOpen = true

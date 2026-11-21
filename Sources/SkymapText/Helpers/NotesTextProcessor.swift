@@ -70,8 +70,6 @@ public class NotesTextProcessor {
         titleFont = NSFont(name: UserDefaultsManagement.windowFontName, size: CGFloat(UserDefaultsManagement.titleFontSize))
     }
 
-    @MainActor public static var hideSyntax = false
-
     // Performance optimization flags
     @MainActor public static var shouldSkipCodeHighlighting = false
     @MainActor public static var shouldUseSimplifiedHighlighting = false

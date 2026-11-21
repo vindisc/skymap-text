@@ -18,7 +18,6 @@ enum ShellPalette {
     /// The line between columns.
     static let hairline = Theme.columnHairline
     /// The line between two notes in the list.
-    static let noteRowHairline = Theme.noteRowHairline
     static let field = pair(0x1F1E1C, 0xFFFFFF, lightAlpha: 0.045, darkAlpha: 0.06)
 
     private static func pair(_ light: UInt32, _ dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> NSColor {

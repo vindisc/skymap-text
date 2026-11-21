@@ -27,7 +27,6 @@
 
 
 /* No comment provided by engineer. */
-"MiaoYan [preview]" = "妙言を「プレビュー」";
 
 /* No comment provided by engineer. */
 "Link" = "リンク";
@@ -154,8 +153,6 @@
 
 
 
-
-"%d MiaoYan" = "%d つ妙言";
 
 
 /* Toast messages without emoji prefix */
@@ -309,9 +306,9 @@
 "When the title bar buttons show" = "タイトルバーのボタンを表示するタイミング";
 "Activate Shortcut" = "呼び出しショートカット";
 "Bring MiaoYan to the front from any app" = "どのアプリからでも MiaoYan を呼び出す";
-"Default Mode" = "標準のモード";
-"Write alone, or with the preview beside it" = "エディタのみ、またはプレビューを横に並べる";
-"Split" = "分割";
+
+
+
 "Send pasted images through an uploader app" = "貼り付けた画像をアップロードアプリで送信";
 "Line Breaks" = "改行";
 "Every Newline" = "改行ごと";

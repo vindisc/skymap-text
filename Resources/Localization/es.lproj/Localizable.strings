@@ -26,7 +26,6 @@
 
 
 /* No comment provided by engineer. */
-"MiaoYan [preview]" = "MiaoYan [vista previa]";
 
 /* No comment provided by engineer. */
 "Link" = "Enlace";
@@ -152,8 +151,6 @@
 
 
 
-
-"%d MiaoYan" = "%d MiaoYan";
 
 
 /* Toast messages without emoji prefix */
@@ -305,9 +302,9 @@
 "When the title bar buttons show" = "Cuándo aparecen los botones de la barra de título";
 "Activate Shortcut" = "Atajo de activación";
 "Bring MiaoYan to the front from any app" = "Trae MiaoYan al frente desde cualquier app";
-"Default Mode" = "Modo predeterminado";
-"Write alone, or with the preview beside it" = "Solo el editor, o con la vista previa al lado";
-"Split" = "Dividido";
+
+
+
 "Send pasted images through an uploader app" = "Sube las imágenes pegadas con una app de subida";
 "Line Breaks" = "Saltos de línea";
 "Every Newline" = "Cada salto";

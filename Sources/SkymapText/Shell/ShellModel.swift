@@ -112,18 +112,9 @@ final class ShellModel {
         }
     }
 
-    /// A run of notes under one date heading; `title` is nil for pinned
-    /// notes and for lists that are not sorted by date.
-    struct NoteSection: Identifiable {
-        let id: String
-        let title: String?
-        let notes: [Note]
-    }
-
     enum EditorMode {
         case edit
         case preview
-        case split
     }
 
     /// The merged navigation column is either shown or hidden; the outline
@@ -136,12 +127,7 @@ final class ShellModel {
     }
 
     private(set) var sidebarRows: [SidebarRow] = []
-    /// The wordmark over the sidebar rows, which is not a row of its own.
-    private(set) var brandTitle = ""
     private(set) var notes: [Note] = []
-    private(set) var sections: [NoteSection] = []
-    /// Plain-text openings for list rows, read off the main thread on demand.
-    var snippets: [URL: String] = [:]
     private(set) var layout = Layout.all {
         didSet {
             // A presentation's note-only layout is not the user's.
@@ -208,7 +194,6 @@ final class ShellModel {
     @ObservationIgnored let editor = ShellEditorController()
     /// Where toasts appear; set by the window's split controller.
     @ObservationIgnored weak var host: NSViewController?
-    @ObservationIgnored private var pendingSnippets: Set<URL> = []
 
     var scope: Scope = .all {
         didSet {
@@ -401,12 +386,6 @@ final class ShellModel {
                 self.scheduleSavedNoteRefresh()
                 return
             }
-            // The new opening replaces the old one only when it differs.
-            // Clearing it first emptied the row and refilled it a moment
-            // later, so the list flickered while typing elsewhere in the note.
-            let text = await Task.detached(priority: .utility) { NotePreview.text(at: url) ?? "" }.value
-            guard !Task.isCancelled else { return }
-            if self.snippets[url] != text { self.snippets[url] = text }
             // A search keeps its result order, as in the storyboard list.
             if self.searchText.isEmpty { self.refreshNotes(keepSelection: true) }
         }
@@ -447,7 +426,8 @@ final class ShellModel {
             guard let item = item as? SidebarItem else { continue }
             switch item.type {
             case .Brand:
-                brandTitle = item.getName()
+                // The brand lockup is gone; the item only made its title.
+                continue
             case .All:
                 rows.append(SidebarRow(id: .all, title: item.getName(), kind: .All))
             case .Trash:
@@ -540,10 +520,6 @@ final class ShellModel {
         selectedNoteURL = notes[next].url
     }
 
-    func cycleLayout() {
-        toggleNav()
-    }
-
     /// ⌘1: the merged navigation column on or off.
     func toggleNav() {
         guard !isPresenting else { return }
@@ -568,16 +544,14 @@ final class ShellModel {
     }
 
 
-    /// Leaving preview always returns to editing; the split mode was
-    /// retired with the merged navigation column.
-    private var modeAfterPreview: EditorMode { .edit }
-
     func togglePreview() {
         guard !isPresenting, !isExporting else { return }
         // An input method's composition lives in the buffer of the view the
         // switch is about to detach; leave it alone until it commits.
+        // Leaving preview always returns to editing: the split mode was
+        // retired with the merged navigation column.
         guard !editor.textView.hasMarkedText() else { return }
-        setMode(editorMode == .preview ? modeAfterPreview : .preview)
+        setMode(editorMode == .preview ? .edit : .preview)
     }
 
     /// ⌘E: the minimal two-state editor, source or rendered.
@@ -1173,9 +1147,8 @@ final class ShellModel {
         }
     }
 
-    /// A note changed on disk: drop its cached opening and redraw.
+    /// A note changed on disk: redraw it in place.
     func noteChangedOnDisk(_ note: Note) {
-        snippets[note.url] = nil
         if selectedNoteURL == note.url {
             contentRevision &+= 1
         }
@@ -1338,7 +1311,6 @@ final class ShellModel {
         if isPresenting { setPresenting(false) }
         searchText = ""
         isSearchOpen = false
-        snippets.removeAll()
         selectedNoteURL = url
         scope = newScope
         reload()
@@ -1627,25 +1599,6 @@ final class ShellModel {
     /// coordinates, for menus that pop at it.
     @ObservationIgnored var selectedRowFrame: CGRect?
 
-    func snippet(for note: Note) -> String? {
-        if let text = snippets[note.url] { return text }
-        guard !pendingSnippets.contains(note.url) else { return nil }
-        pendingSnippets.insert(note.url)
-        let url = note.url
-        Task { [weak self] in
-            let text = await Task.detached(priority: .utility) { NotePreview.text(at: url) ?? "" }.value
-            self?.snippets[url] = text
-            self?.pendingSnippets.remove(url)
-        }
-        return nil
-    }
-
-    func selectNextScope(_ offset: Int) {
-        guard let current = sidebarRows.firstIndex(where: { $0.id == scope }) else { return }
-        let next = min(max(current + offset, 0), sidebarRows.count - 1)
-        scope = sidebarRows[next].id
-    }
-
     /// The merged column's arrows: up and down walk every row, folder rows
     /// choosing their scope (the storyboard sidebar's arrows) and note rows
     /// selecting the note (the storyboard list's arrows). Section headings
@@ -1756,7 +1709,6 @@ final class ShellModel {
 
         guard !Task.isCancelled else { return }
         notes = ordered
-        sections = terms.isEmpty ? Self.group(ordered) : [NoteSection(id: "results", title: nil, notes: ordered)]
         computeNavRows()
         if !(keepSelection && ordered.contains(where: { $0.url == selectedNoteURL })) {
             selectedNoteURL = ordered.first?.url
@@ -1878,61 +1830,6 @@ final class ShellModel {
         updateOutlineSelection(topBufferLine: bufferLine)
     }
 
-    /// Notes' grouping: pinned first, then Today, Yesterday, the months of
-    /// this year and earlier years. Only a list sorted by date is grouped.
-    private static func group(_ notes: [Note]) -> [NoteSection] {
-        let sort = UserDefaultsManagement.sort
-        guard sort == .modificationDate || sort == .creationDate else {
-            return [NoteSection(id: "all", title: nil, notes: notes)]
-        }
-        let calendar = Calendar.current
-        let now = Date()
-        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-        let relative = DateFormatter()
-        relative.locale = locale
-        relative.dateStyle = .medium
-        relative.timeStyle = .none
-        relative.doesRelativeDateFormatting = true
-        let month = DateFormatter()
-        month.locale = locale
-        month.setLocalizedDateFormatFromTemplate("MMMM")
-
-        var sections: [NoteSection] = []
-        var currentID: String?
-        var currentTitle: String?
-        var currentNotes: [Note] = []
-        func flush() {
-            if let currentID { sections.append(NoteSection(id: currentID, title: currentTitle, notes: currentNotes)) }
-        }
-        for note in notes {
-            let key: (id: String, title: String?)
-            if note.isPinned {
-                key = ("pinned", nil)
-            } else {
-                let date = (sort == .creationDate ? note.creationDate : nil) ?? note.modifiedLocalAt
-                if calendar.isDateInToday(date) || calendar.isDateInYesterday(date) {
-                    let day = calendar.startOfDay(for: date)
-                    key = ("day-\(day.timeIntervalSince1970)", relative.string(from: date))
-                } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-                    let number = calendar.component(.month, from: date)
-                    key = ("month-\(number)", month.string(from: date))
-                } else {
-                    let year = calendar.component(.year, from: date)
-                    key = ("year-\(year)", String(year))
-                }
-            }
-            if currentID == key.id {
-                currentNotes.append(note)
-            } else {
-                flush()
-                currentID = key.id
-                currentTitle = key.title
-                currentNotes = [note]
-            }
-        }
-        flush()
-        return sections
-    }
 
     /// The folders a scope covers, as the AppKit sidebar hands them to the list.
     func scopeProjects() -> ([Project], SidebarItemType) {

@@ -2,8 +2,6 @@
 "About" = "關於";
 
 /* No comment provided by engineer. */
-"%d MiaoYan" = "%d 篇妙言";
-
 
 /* Toast messages without emoji prefix */
 "Formatted" = "排版完成";
@@ -159,7 +157,7 @@
 
 /* Missing translations */
 "Link" = "連結";
-"MiaoYan [preview]" = "妙言 [預覽]";
+
 "New" = "新建";
 "New Folder" = "新增檔案夾";
 "New Subfolder" = "新增子檔案夾";
@@ -286,9 +284,9 @@
 "When the title bar buttons show" = "標題列按鈕什麼時候出現";
 "Activate Shortcut" = "喚起快速鍵";
 "Bring MiaoYan to the front from any app" = "在任何 App 裡叫出妙言";
-"Default Mode" = "預設模式";
-"Write alone, or with the preview beside it" = "只顯示編輯區，或在旁邊並排預覽";
-"Split" = "分欄";
+
+
+
 "Send pasted images through an uploader app" = "貼上的圖片交給上傳工具處理";
 "Line Breaks" = "換行方式";
 "Every Newline" = "每次換行";

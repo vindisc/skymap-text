@@ -83,18 +83,6 @@ enum MarkdownRuleHighlighter {
         let string = attributedString.string
 
         let quoteFont = NotesTextProcessor.quoteFont(CGFloat(UserDefaultsManagement.fontSize))
-        let hiddenFont = NSFont.systemFont(ofSize: 0.1)
-        let hiddenColor = NSColor.clear
-        let hiddenAttributes: [NSAttributedString.Key: Any] = [
-            .font: hiddenFont,
-            .foregroundColor: hiddenColor,
-        ]
-
-        func hideSyntaxIfNecessary(range: @autoclosure () -> NSRange) {
-            guard NotesTextProcessor.hideSyntax else { return }
-            attributedString.addAttributes(hiddenAttributes, range: range())
-        }
-
         // Markdown's own punctuation (`#`, `**`, `>`, `-`, brackets) in the
         // quiet markup colour and the system face a size down: TsangerJinKai
         // draws `<`, `>`, `*` and `"` wide and heavy, and they stood out
@@ -199,7 +187,6 @@ enum MarkdownRuleHighlighter {
                     return
                 }
                 markSyntax(innerRange)
-                hideSyntaxIfNecessary(range: NSRange(location: innerRange.location, length: innerRange.length))
             }
         }
 
@@ -221,7 +208,6 @@ enum MarkdownRuleHighlighter {
                 markSyntax(innerRange)
                 let syntaxRange = NSRange(location: innerRange.location, length: innerRange.length + 1)
                 guard syntaxRange.upperBound <= attributedString.length else { return }
-                hideSyntaxIfNecessary(range: syntaxRange)
             }
 
             NotesTextProcessor.headersAtxClosingRegex.matches(string, range: range) { innerResult in
@@ -231,7 +217,6 @@ enum MarkdownRuleHighlighter {
                     return
                 }
                 markSyntax(innerRange)
-                hideSyntaxIfNecessary(range: innerRange)
             }
         }
 
@@ -278,8 +263,6 @@ enum MarkdownRuleHighlighter {
                 markDelimiters(of: innerRange, length: 1)
                 let initialSyntaxRange = NSRange(location: innerRange.location, length: 1)
                 let finalSyntaxRange = NSRange(location: innerRange.location + innerRange.length - 1, length: 1)
-                hideSyntaxIfNecessary(range: initialSyntaxRange)
-                hideSyntaxIfNecessary(range: finalSyntaxRange)
             }
         }
 
@@ -307,19 +290,16 @@ enum MarkdownRuleHighlighter {
 
                 destinationLink = substring
                 attributedString.addAttribute(.link, value: substring, range: linkRange)
-                hideSyntaxIfNecessary(range: innerRange)
             }
 
             NotesTextProcessor.openingSquareRegex.matches(string, range: range) { innerResult in
                 guard let innerRange = innerResult?.range else { return }
                 markSyntax(innerRange)
-                hideSyntaxIfNecessary(range: innerRange)
             }
 
             NotesTextProcessor.closingSquareRegex.matches(string, range: range) { innerResult in
                 guard let innerRange = innerResult?.range else { return }
                 markSyntax(innerRange)
-                hideSyntaxIfNecessary(range: innerRange)
             }
 
             guard destinationLink != nil else { return }
@@ -341,9 +321,6 @@ enum MarkdownRuleHighlighter {
             guard let range = result?.range else { return }
             attributedString.fixAttributes(in: range)
 
-            if NotesTextProcessor.hideSyntax {
-                attributedString.addAttribute(.font, value: hiddenFont, range: range)
-            }
             NotesTextProcessor.imageOpeningSquareRegex.matches(string, range: range) { innerResult in
                 guard let innerRange = innerResult?.range else { return }
                 attributedString.addAttribute(.foregroundColor, value: NotesTextProcessor.linkColor, range: innerRange)
@@ -381,7 +358,6 @@ enum MarkdownRuleHighlighter {
             NotesTextProcessor.blockQuoteOpeningRegex.matches(string, range: range) { innerResult in
                 guard let innerRange = innerResult?.range else { return }
                 markSyntax(innerRange)
-                hideSyntaxIfNecessary(range: innerRange)
             }
         }
 

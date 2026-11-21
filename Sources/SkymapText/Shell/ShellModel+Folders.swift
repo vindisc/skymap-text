@@ -92,7 +92,6 @@ extension ShellModel {
             expandedFolders.insert(folder.url)
             parent = folder.parent
         }
-        snippets.removeAll()
         if let chosenFolder { scope = .project(chosenFolder.url) }
         reload()
         selectedNoteURL = openNote?.url ?? selectedNoteURL.map(moved)

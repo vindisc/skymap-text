@@ -5,7 +5,6 @@ extension Notification.Name {
     /// Editor and preview fonts changed while no ViewController exists (the
     /// SwiftUI shell), which re-renders on it.
     static let editorSettingsChanged = Notification.Name("EditorSettingsChanged")
-    static let splitViewModeChanged = Notification.Name("SplitViewModeChanged")
     static let alwaysOnTopChanged = Notification.Name("alwaysOnTopChanged")
 }
 // MARK: - App Identifier
@@ -924,7 +923,6 @@ public enum UserDefaultsManagement {
             guard oldValue != newValue else { return }
             UserDefaults.standard.set(newValue, forKey: Constants.SplitViewMode)
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .splitViewModeChanged, object: nil)
             }
         }
     }
