@@ -592,17 +592,21 @@ enum MiaoYanAlert {
         message: String,
         informativeText: String? = nil,
         style: NSAlert.Style = .informational,
-        buttonTitle: String = I18n.str("OK"),
-        for window: NSWindow? = NSApp.keyWindow ?? NSApp.mainWindow,
+        buttonTitle: String? = nil,
+        for window: NSWindow? = nil,
         completion: ((NSApplication.ModalResponse) -> Void)? = nil
     ) {
+        // Default arguments evaluate outside @MainActor isolation, so the
+        // localized title and the window are resolved here instead.
+        let title = buttonTitle ?? I18n.str("OK")
+        let targetWindow = window ?? NSApp.keyWindow ?? NSApp.mainWindow
         let alert = make(
             message: message,
             informativeText: informativeText,
             style: style,
-            buttons: [buttonTitle]
+            buttons: [title]
         )
-        present(alert, for: window) { response in
+        present(alert, for: targetWindow) { response in
             completion?(response)
         }
     }
@@ -611,16 +615,17 @@ enum MiaoYanAlert {
         message: String,
         informativeText: String? = nil,
         confirmTitle: String,
-        cancelTitle: String = I18n.str("Cancel"),
+        cancelTitle: String? = nil,
         style: NSAlert.Style = .warning,
         for window: NSWindow?,
         completion: @escaping (Bool) -> Void
     ) {
+        let cancel = cancelTitle ?? I18n.str("Cancel")
         let alert = make(
             message: message,
             informativeText: informativeText,
             style: style,
-            buttons: [confirmTitle, cancelTitle]
+            buttons: [confirmTitle, cancel]
         )
         present(alert, for: window) { response in
             completion(response == .alertFirstButtonReturn)

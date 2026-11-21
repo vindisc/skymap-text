@@ -11,7 +11,11 @@ import SwiftUI
 final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     private var appearanceObservation: NSKeyValueObservation?
     static var isRequested: Bool {
-        UserDefaults.standard.bool(forKey: "MiaoYanShell")
+        // SwiftPM build: the shell is the only window; `-MiaoYanShell NO`
+        // still opts out explicitly.
+        UserDefaults.standard.object(forKey: "MiaoYanShell") != nil
+            ? UserDefaults.standard.bool(forKey: "MiaoYanShell")
+            : true
     }
 
     let model: ShellModel

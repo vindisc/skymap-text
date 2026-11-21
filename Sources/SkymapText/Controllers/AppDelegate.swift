@@ -3,7 +3,9 @@ import KeyboardShortcuts
 import Sparkle
 import os.log
 
-@main
+// The SwiftPM build has no storyboard, and `@main` on an NSApplicationDelegate
+// does not instantiate the delegate in that setup (verified by probe). The
+// programmatic entry lives in main.swift, which wires the delegate by hand.
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
     var mainWindowController: MainWindowController?
@@ -90,11 +92,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: nil,
-            userDriverDelegate: nil)
+        // A swift-built binary does not inherit the LaunchServices activation
+        // a bundled app gets; without this the process runs without a dock
+        // presence or key focus (the skymap-mac packaging lesson).
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
 
+        // Sparkle needs a feed in Info.plist; the SwiftPM build ships none
+        // and skips the updater entirely.
+        if Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil {
+            updaterController = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: nil,
+                userDriverDelegate: nil)
+        }
+
+        // The SwiftPM build has no storyboard menu; build one before the icon
+        // pass so it decorates our items too.
+        MainMenuBuilder.install()
         NSApp.mainMenu?.applyMenuIcons()
 
         NSApp.mainMenu?.update()
@@ -114,7 +129,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if KeyboardShortcuts.getShortcut(for: .activateWindow) == nil {
             KeyboardShortcuts.setShortcut(.init(.m, modifiers: [.command, .option]), for: .activateWindow)
         }
-        if #available(macOS 14, *), ShellWindowController.isRequested {
+        // The SwiftPM build always opens the SwiftUI shell; the storyboard
+        // window below stays only for the main-branch Xcode project.
+        if ShellWindowController.isRequested {
             let shell = ShellWindowController()
             shell.showWindow(nil)
             shellWindowController = shell
@@ -424,13 +441,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @IBAction func showAboutWindow(_ sender: AnyObject) {
-        if aboutWindowController == nil {
-            let storyboard = NSStoryboard(name: "Main", bundle: nil)
-            aboutWindowController = storyboard.instantiateController(withIdentifier: "About") as? AboutWindowController
-        }
-        guard let aboutWindowController = aboutWindowController else { return }
-        aboutWindowController.showWindow(nil)
-        aboutWindowController.window?.makeKeyAndOrderFront(aboutWindowController)
+        // SwiftPM build: no storyboard About scene; use the standard panel.
+        NSApp.orderFrontStandardAboutPanel(options: [:])
         NSApp.activate(ignoringOtherApps: true)
     }
 
