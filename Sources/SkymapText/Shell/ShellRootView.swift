@@ -307,10 +307,8 @@ struct ShellNav: View {
         let isSelected = model.isSelected(note)
         return ShellNoteRow(
             note: note,
-            snippet: model.snippet(for: note),
             date: ShellModel.rowDate(for: note),
             isSelected: isSelected,
-            showsDivider: !isSelected,
             indent: indent
         )
         .background {
@@ -640,59 +638,43 @@ private struct ShellSectionHeader: View {
     }
 }
 
-/// A note card: the title, two lines of the note's opening and the date,
-/// parted from the next by a hairline inset to the title; the open note sits
-/// on a sand plate and the lines beside it hide, as in the storyboard list.
+/// A note row: the title and its date on one line, at the folder rows' 30pt
+/// rhythm — no opening snippet, whose two lines made the column read as a
+/// draft sheet. The open note sits on the sand plate.
 @available(macOS 14, *)
 private struct ShellNoteRow: View {
     let note: Note
-    let snippet: String?
     let date: String
     let isSelected: Bool
-    let showsDivider: Bool
     /// How deep the note sits under its folder. Only the text moves with it;
-    /// the plate and the divider span the row like the folder rows' do, so a
-    /// selected note's plate is as wide as a selected folder's.
+    /// the plate spans the row like the folder rows' do.
     var indent: Int = 0
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let nameSize = CGFloat(UserDefaultsManagement.nameFontSize)
-        let bodySize = nameSize - 1
         let dateSize = CGFloat(UserDefaultsManagement.dateFontSize)
         let titleText = Text(title)
-            .font(ShellStyle.interface(nameSize, weight: ShellStyle.titleWeight))
+            .font(ShellStyle.interface(nameSize))
             .kerning(ShellStyle.tracking(nameSize))
             .foregroundStyle(ShellStyle.text)
             .lineLimit(1)
             .truncationMode(.tail)
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 4) {
-                // A cut-off title shows in full on hover, as the storyboard
-                // list's expansion tooltips do; one that fits shows none.
-                ViewThatFits(in: .horizontal) {
-                    titleText
-                    titleText.help(title)
-                }
-                Spacer(minLength: 0)
-                if note.isPinned, let pin = NSImage(named: "pinNote") {
-                    SwiftUI.Image(nsImage: pin)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 10, height: 10)
-                        .foregroundStyle(ShellStyle.tertiaryText)
-                }
+        HStack(spacing: 4) {
+            // A cut-off title shows in full on hover, as the storyboard
+            // list's expansion tooltips do; one that fits shows none.
+            ViewThatFits(in: .horizontal) {
+                titleText
+                titleText.help(title)
             }
-            if let snippet, !snippet.isEmpty {
-                Text(snippet)
-                    .font(ShellStyle.interface(bodySize))
-                    .kerning(ShellStyle.tracking(bodySize))
-                    .foregroundStyle(ShellStyle.secondaryText)
-                    .lineLimit(2)
-                    .lineSpacing(ShellStyle.lineSpacing(bodySize))
-                    .fixedSize(horizontal: false, vertical: true)
+            if note.isPinned, let pin = NSImage(named: "pinNote") {
+                SwiftUI.Image(nsImage: pin)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 10, height: 10)
+                    .foregroundStyle(ShellStyle.tertiaryText)
             }
+            Spacer(minLength: 8)
             Text(date)
                 .font(ShellStyle.interface(dateSize))
                 .kerning(ShellStyle.tracking(dateSize))
@@ -701,29 +683,21 @@ private struct ShellNoteRow: View {
         }
         .padding(.leading, 20 + CGFloat(indent) * 16)
         .padding(.trailing, 16)
-        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 30)
         .background {
             if isSelected {
                 // Full row width, as the folder rows' plates are; the text
                 // carries the indent, the plate does not.
                 RoundedRectangle(cornerRadius: Theme.Metrics.selectionCornerRadius, style: .continuous)
                     .fill(ShellStyle.selection)
-                    .padding(.vertical, 2)
             }
         }
-        .overlay(alignment: .bottom) {
-            if showsDivider {
-                ShellStyle.noteRowHairline
-                    .frame(height: 1 / displayScale)
-                    .padding(.horizontal, 20)
-            }
-        }
-        // VoiceOver reads a row as one item: the title, then its date and
-        // opening; the list's tap action is its default action.
+        // VoiceOver reads a row as one item: the title, then its date; the
+        // list's tap action is its default action.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue([date, snippet ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
+        .accessibilityValue(date)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
