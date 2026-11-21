@@ -379,3 +379,11 @@
 "Task 1" = "待完成任务1";
 "Task 2" = "待完成任务2";
 "Finished task" = "已完成任务";
+
+/* Merged navigation column and outline (branch spm) */
+"No Notes Yet · ⌘N New" = "还没有笔记 · ⌘N 新建";
+"No Matches" = "没有匹配的笔记";
+"Select a note, or press ⌘N to create one" = "选择一篇笔记，或按 ⌘N 新建";
+"No Headings" = "没有标题";
+"Toggle Navigation" = "显示/隐藏导航";
+"Toggle Outline" = "显示/隐藏大纲";

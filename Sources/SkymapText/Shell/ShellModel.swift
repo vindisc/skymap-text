@@ -165,6 +165,7 @@ final class ShellModel {
             case folder(SidebarRow, isScope: Bool)
             case section(String, indent: Int)
             case note(Note, indent: Int)
+            case hint(String, indent: Int)
         }
 
         let id: String
@@ -184,6 +185,10 @@ final class ShellModel {
         var id: Int { bufferLine }
     }
     private(set) var outline: [OutlineEntry] = []
+    /// The buffer line of the heading currently in view; the outline column
+    /// highlights it. Follows editor scrolls and, in the rendered mode,
+    /// preview scrolls.
+    private(set) var outlineSelectedBufferLine: Int?
     var isOutlineVisible = UserDefaults.standard.bool(forKey: "ShellOutlineVisible") {
         didSet {
             guard isOutlineVisible != oldValue else { return }
@@ -367,6 +372,9 @@ final class ShellModel {
         }
         editor.onOutlineDirty = { [weak self] in
             self?.refreshOutline()
+        }
+        editor.onVisibleLineChange = { [weak self] line in
+            self?.updateOutlineSelection(topBufferLine: line)
         }
         editor.onFormattingChange = { [weak self] formatting in
             self?.isFormatting = formatting
@@ -1614,6 +1622,45 @@ final class ShellModel {
         scope = sidebarRows[next].id
     }
 
+    /// The merged column's arrows: up and down walk every row, folder rows
+    /// choosing their scope (the storyboard sidebar's arrows) and note rows
+    /// selecting the note (the storyboard list's arrows). Section headings
+    /// and hints are passed over.
+    func selectNextNavRow(_ offset: Int) {
+        guard !navRows.isEmpty else { return }
+        let current: Int
+        if let url = selectedNoteURL, let index = navRows.firstIndex(where: { $0.id == "note:" + url.path }) {
+            current = index
+        } else if let index = navRows.firstIndex(where: {
+            if case .folder(let row, _) = $0.kind { return row.id == scope }
+            return false
+        }) {
+            current = index
+        } else {
+            current = offset < 0 ? navRows.count - 1 : 0
+        }
+        var next = current
+        rowLoop: repeat {
+            next = min(max(next + offset, 0), navRows.count - 1)
+            switch navRows[next].kind {
+            case .folder, .note:
+                break rowLoop
+            case .section, .hint:
+                // Unselectable rows are stepped over; at the edge, stop.
+                if next == 0 || next == navRows.count - 1 { return }
+                continue
+            }
+        } while true
+        switch navRows[next].kind {
+        case .folder(let row, _):
+            scope = row.id
+        case .note(let note, _):
+            selectedNoteURL = note.url
+        default:
+            return
+        }
+    }
+
     // MARK: - List
 
     /// Typing waits a beat so each keystroke does not start a disk scan.
@@ -1700,6 +1747,14 @@ final class ShellModel {
     private func computeNavRows() {
         var rows: [NavRow] = []
         func injectScopeNotes(indent: Int) {
+            if notes.isEmpty {
+                // An empty scope says so, with the way out for a new one.
+                let hint = searchText.isEmpty
+                    ? I18n.str("No Notes Yet · ⌘N New")
+                    : I18n.str("No Matches")
+                rows.append(NavRow(id: "hint:" + scope.storedValue, kind: .hint(hint, indent: indent)))
+                return
+            }
             if sections.count == 1, sections[0].title == nil {
                 for note in sections[0].notes {
                     rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
@@ -1763,7 +1818,28 @@ final class ShellModel {
             guard !title.isEmpty else { continue }
             entries.append(OutlineEntry(level: level, title: title, bufferLine: index))
         }
-        if entries != outline { outline = entries }
+        if entries != outline {
+            outline = entries
+            outlineSelectedBufferLine = nil
+        }
+        updateOutlineSelectionFromViewport()
+    }
+
+    /// The outline row matching the note's viewport top: the last heading at
+    /// or above it.
+    func updateOutlineSelection(topBufferLine: Int) {
+        guard isOutlineVisible, !outline.isEmpty else { return }
+        let selected = outline.last(where: { $0.bufferLine <= topBufferLine })?.bufferLine
+        if selected != outlineSelectedBufferLine { outlineSelectedBufferLine = selected }
+    }
+
+    private func updateOutlineSelectionFromViewport() {
+        guard isOutlineVisible else { return }
+        if editorMode == .preview {
+            previewDidScroll(line: preview?.lastScrollLine ?? 1)
+        } else {
+            updateOutlineSelection(topBufferLine: editor.topBufferLine())
+        }
     }
 
     /// An outline row click: scroll the editor to the heading, or the
@@ -1775,6 +1851,16 @@ final class ShellModel {
         } else {
             editor.scrollToBufferLine(entry.bufferLine)
         }
+        outlineSelectedBufferLine = entry.bufferLine
+    }
+
+    /// The rendered mode's scroll reports here (the preview's delegate), the
+    /// same conversion the split sync uses back into buffer lines.
+    func previewDidScroll(line: CGFloat) {
+        guard isOutlineVisible, !outline.isEmpty else { return }
+        let frontmatterLines = editor.textView.storageNote === selectedNote ? editor.frontmatterLines : 0
+        let (bufferLine, _) = ShellSplitMath.bufferLine(forPreviewLine: line, frontmatterLines: frontmatterLines)
+        updateOutlineSelection(topBufferLine: bufferLine)
     }
 
     /// Notes' grouping: pinned first, then Today, Yesterday, the months of
@@ -1866,3 +1952,8 @@ extension ShellModel.Scope {
         }
     }
 }
+
+/// The rendered mode's preview reports its scrolls here so the outline's
+/// current-section highlight follows reading as well as editing.
+@available(macOS 14, *)
+extension ShellModel: MPreviewScrollDelegate {}

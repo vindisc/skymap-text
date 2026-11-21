@@ -120,6 +120,7 @@ class HandlerPreviewScroll: NSObject, WKScriptMessageHandler {
             let lineNum = (dict["line"] as? NSNumber)?.doubleValue
         else { return }
         Task { @MainActor in
+            previewView.lastScrollLine = CGFloat(lineNum)
             previewView.scrollDelegate?.previewDidScroll(line: CGFloat(lineNum))
         }
     }

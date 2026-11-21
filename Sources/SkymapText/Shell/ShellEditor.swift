@@ -196,6 +196,17 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
         scrollView.frame = container.bounds
         scrollView.autoresizingMask = [.width, .height]
         container.addSubview(scrollView)
+        // Every editor scroll reports its top buffer line, so the outline
+        // column can highlight the section in view.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification, object: scrollView.contentView, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.onVisibleLineChange != nil else { return }
+                self.onVisibleLineChange?(self.topBufferLine())
+            }
+        }
     }
 
     /// The list's search, whose keywords an opened note highlights.
@@ -321,6 +332,17 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
     func topBodyLine() -> CGFloat {
         previewLine(atDocumentY: scrollView.contentView.bounds.origin.y)
     }
+
+    /// The 0-based buffer line at the top of the editor, the numbering the
+    /// outline entries use.
+    func topBufferLine() -> Int {
+        let (line, _) = ShellSplitMath.bufferLine(forPreviewLine: topBodyLine(), frontmatterLines: frontmatterLines)
+        return line
+    }
+
+    /// Fires on every editor scroll with the top buffer line, for the
+    /// outline's current-section highlight.
+    var onVisibleLineChange: ((Int) -> Void)?
 
     /// The preview's line for a height in the editor's document.
     private func previewLine(atDocumentY y: CGFloat) -> CGFloat {

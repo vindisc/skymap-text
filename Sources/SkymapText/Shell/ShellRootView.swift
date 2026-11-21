@@ -112,7 +112,9 @@ private struct ChromeButton: View {
         Button(action: action) {
             glyph
                 .foregroundStyle(isActive ? ShellStyle.accent : tint)
-                .frame(width: 28, height: 28)
+                // 32pt of hit area around the 16pt glyph, the desktop
+                // pointer's comfortable minimum.
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -224,16 +226,20 @@ struct ShellNav: View {
                 .onAppear {
                     if model.listContent != nil { revealSelection(proxy, restoring: nil) }
                 }
+                // A folder row reached by the arrows stays in view.
+                .onChange(of: model.scope) { _, scope in
+                    proxy.scrollTo(rowID(forScope: scope), anchor: .center)
+                }
             }
             .focusable()
             .focusEffectDisabled()
             .focused($navFocused)
             .onKeyPress(.upArrow) {
-                model.selectNext(-1)
+                model.selectNextNavRow(-1)
                 return .handled
             }
             .onKeyPress(.downArrow) {
-                model.selectNext(1)
+                model.selectNextNavRow(1)
                 return .handled
             }
             .onChange(of: model.focusRequest) { _, request in
@@ -285,6 +291,15 @@ struct ShellNav: View {
         case .note(let note, let indent):
             noteRow(note)
                 .padding(.leading, CGFloat(indent) * 16)
+        case .hint(let text, let indent):
+            let size = CGFloat(UserDefaultsManagement.dateFontSize)
+            Text(text)
+                .font(ShellStyle.interface(size))
+                .kerning(ShellStyle.tracking(size))
+                .foregroundStyle(ShellStyle.tertiaryText)
+                .padding(.leading, CGFloat(indent) * 16 + 20)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -756,16 +771,25 @@ struct ShellDetail: View {
                 case .preview:
                     ShellPreview(
                         note: note, revision: model.contentRevision, styleRevision: model.previewStyleRevision,
-                        onMake: { model.preview = $0 }, onLoad: { model.previewDidLoad($0) })
+                        onMake: { view in
+                            model.preview = view
+                            // The rendered mode's scrolls drive the outline's
+                            // current-section highlight.
+                            view.scrollDelegate = model
+                        },
+                        onLoad: { model.previewDidLoad($0) })
+                    .transition(.opacity)
                 default:
                     // The split mode was retired with the merged navigation
                     // column; a stale persisted value comes back editing.
                     ShellEditorView(controller: model.editor, note: note)
+                        .transition(.opacity)
                 }
             } else {
-                SwiftUI.Color.clear
+                ShellDetailEmptyState()
             }
         }
+        .animation(.easeOut(duration: 0.12), value: model.editorMode)
         .background(ShellStyle.background.ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
     }
@@ -823,12 +847,80 @@ struct ShellDetail: View {
     }
 }
 
+/// The detail pane with no note open: the bird and the way out, instead of
+/// a blank surface.
+@available(macOS 14, *)
+private struct ShellDetailEmptyState: View {
+    var body: some View {
+        let size = CGFloat(UserDefaultsManagement.nameFontSize)
+        VStack(spacing: 12) {
+            SwiftUI.Image(nsImage: NSImage(named: "emptyStateBird") ?? NSImage())
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 76, height: 76)
+                .foregroundStyle(ShellStyle.tertiaryText)
+            Text(I18n.str("Select a note, or press ⌘N to create one"))
+                .font(ShellStyle.interface(size))
+                .kerning(ShellStyle.tracking(size))
+                .foregroundStyle(ShellStyle.tertiaryText)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Outline
+
+/// One outline row: the heading's level sets the indent and weight, and the
+/// section currently in view sits on the selection plate.
+@available(macOS 14, *)
+private struct ShellOutlineRow: View {
+    @Bindable var model: ShellModel
+    let entry: ShellModel.OutlineEntry
+    @State private var isHovering = false
+
+    private var isCurrent: Bool {
+        entry.bufferLine == model.outlineSelectedBufferLine
+    }
+
+    var body: some View {
+        let size = CGFloat(UserDefaultsManagement.nameFontSize - 1)
+        Button {
+            model.outlineJump(entry)
+        } label: {
+            Text(entry.title)
+                .font(ShellStyle.interface(size, weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
+                .kerning(ShellStyle.tracking(size))
+                .foregroundStyle(
+                    isCurrent ? ShellStyle.accent : entry.level <= 2 ? ShellStyle.text : ShellStyle.secondaryText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(entry.title)
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, CGFloat(entry.level - 1) * 14 + 12)
+        .padding(.trailing, 10)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .background {
+            if isCurrent || isHovering {
+                RoundedRectangle(cornerRadius: Theme.Metrics.selectionCornerRadius, style: .continuous)
+                    .fill(ShellStyle.sidebarSelection.opacity(isCurrent ? 1 : 0.5))
+                    .padding(.horizontal, 6)
+            }
+        }
+        .onHover { isHovering = $0 }
+        .accessibilityAddTraits(isCurrent ? [.isSelected] : [])
+    }
+}
 
 /// The open note's headings in a slim trailing column. A row click scrolls
 /// the editor, or the preview when the rendered mode is showing, to the
 /// heading's line — the same line mapping the split sync and the preview's
-/// sourcepos anchors already share.
+/// sourcepos anchors already share. The row in view follows scrolling in
+/// either state.
 @available(macOS 14, *)
 struct ShellOutline: View {
     @Bindable var model: ShellModel
@@ -862,24 +954,7 @@ struct ShellOutline: View {
                             .padding(.top, 16)
                     } else {
                         ForEach(model.outline) { entry in
-                            Button {
-                                model.outlineJump(entry)
-                            } label: {
-                                let size = CGFloat(UserDefaultsManagement.nameFontSize - 1)
-                                Text(entry.title)
-                                    .font(ShellStyle.interface(size, weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
-                                    .kerning(ShellStyle.tracking(size))
-                                    .foregroundStyle(entry.level <= 2 ? ShellStyle.text : ShellStyle.secondaryText)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .help(entry.title)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.leading, CGFloat(entry.level - 1) * 14 + 12)
-                            .padding(.trailing, 10)
-                            .padding(.vertical, 5)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                            ShellOutlineRow(model: model, entry: entry)
                         }
                     }
                 }

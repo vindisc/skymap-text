@@ -93,6 +93,10 @@ class MPreviewView: WKWebView, WKUIDelegate {
     public static var template: String?
     private static var bundleInitialized = false
     weak var scrollDelegate: MPreviewScrollDelegate?
+    /// The preview line last reported by the page's scroll sync, for pulls
+    /// that must not wait on JavaScript (the outline's initial highlight).
+    /// Written by the page's scroll handler.
+    var lastScrollLine: CGFloat = 1
     var displayedNote: Note? {
         note
     }
