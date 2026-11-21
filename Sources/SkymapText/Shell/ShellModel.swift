@@ -847,6 +847,15 @@ final class ShellModel {
     /// The preview currently on screen, for commands that act on it (TOC,
     /// outline jumps in the rendered mode).
     @ObservationIgnored weak var preview: MPreviewView?
+    /// One preview view reused across mode switches: creating a WKWebView and
+    /// loading the render template on every Command-E made the toggle feel
+    /// seconds slow. The cached view keeps its DOM and scroll, so returning
+    /// to a note's rendered page is instant and stays where reading left off.
+    @ObservationIgnored private var cachedPreview: MPreviewView?
+
+    func reusablePreview() -> MPreviewView? { cachedPreview }
+
+    func stashPreview(_ view: MPreviewView) { cachedPreview = view }
 
     enum FocusTarget {
         case sidebar

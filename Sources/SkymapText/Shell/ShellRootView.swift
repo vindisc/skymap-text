@@ -770,7 +770,8 @@ struct ShellDetail: View {
                 switch model.editorMode {
                 case .preview:
                     ShellPreview(
-                        note: note, revision: model.contentRevision, styleRevision: model.previewStyleRevision,
+                        model: model, note: note,
+                        revision: model.contentRevision, styleRevision: model.previewStyleRevision,
                         onMake: { view in
                             model.preview = view
                             // The rendered mode's scrolls drive the outline's
@@ -778,18 +779,17 @@ struct ShellDetail: View {
                             view.scrollDelegate = model
                         },
                         onLoad: { model.previewDidLoad($0) })
-                    .transition(.opacity)
                 default:
                     // The split mode was retired with the merged navigation
                     // column; a stale persisted value comes back editing.
                     ShellEditorView(controller: model.editor, note: note)
-                        .transition(.opacity)
                 }
             } else {
                 ShellDetailEmptyState()
             }
         }
-        .animation(.easeOut(duration: 0.12), value: model.editorMode)
+        // The mode swap cuts, no fade: the cached preview makes it fast, and
+        // animating the heavy AppKit/Web view swap read as lag.
         .background(ShellStyle.background.ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
     }
@@ -1180,9 +1180,12 @@ private struct ShellNoteMenu: View {
     }
 }
 
-/// The existing WKWebView preview, loaded with whichever note is open.
+/// The existing WKWebView preview, loaded with whichever note is open. The
+/// view itself is cached in the model and reused across mode switches, so a
+/// Command-E back into a note's page does not rebuild WebKit or the template.
 @available(macOS 14, *)
 struct ShellPreview: NSViewRepresentable {
+    let model: ShellModel
     let note: Note
     /// A change re-renders the open note in place, keeping its scroll.
     var revision = 0
@@ -1202,9 +1205,19 @@ struct ShellPreview: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> MPreviewView {
-        let view = MPreviewView(frame: .zero, note: note, closure: nil)
+        let view = model.reusablePreview() ?? MPreviewView(frame: .zero, note: note, closure: nil)
+        model.stashPreview(view)
         onMake?(view)
-        load(note, into: view, context: context)
+        if view.displayedNote?.url == note.url, view.hasLoadedTemplate {
+            // The cached page already holds this note: skip the reload and
+            // let the entry scroll put the reading place where editing was.
+            context.coordinator.loadedURL = note.url
+            context.coordinator.revision = revision
+            context.coordinator.styleRevision = styleRevision
+            onLoad?(view)
+        } else {
+            load(note, into: view, context: context)
+        }
         return view
     }
 
