@@ -129,9 +129,13 @@ private struct ChromeButton: View {
 
     @ViewBuilder private var glyph: some View {
         if let symbol {
-            // SF Symbols at the image glyphs' optical size keeps the header
-            // row's weights even.
-            SwiftUI.Image(systemName: symbol).font(.system(size: 15, weight: .regular))
+            // SF Symbols take the same 16pt box the bundled SVGs draw in:
+            // font-size sizing left them optically smaller and thinner than
+            // the image glyphs beside them, which read as two systems.
+            SwiftUI.Image(systemName: symbol)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
         } else {
             SwiftUI.Image(nsImage: NSImage(named: image ?? "") ?? NSImage())
                 .renderingMode(.template)
@@ -788,7 +792,9 @@ struct ShellDetail: View {
             }
         }
         .padding(.leading, ShellStyle.noteTextInset)
-        .padding(.trailing, 12)
+        // The nav header's 10pt: the two clusters sit on one line and read
+        // as one system when their edge insets match.
+        .padding(.trailing, 10)
         .frame(height: ShellStyle.headerHeight)
         .background(ShellTitleBarArea())
         .background(ShellHoverTracker { isHoveringHeader = $0 })
