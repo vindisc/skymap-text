@@ -1227,9 +1227,11 @@ final class ShellSplitViewController: NSSplitViewController {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
 
+        // The middle pane takes the window's bulk: the columns cap at
+        // comfortable reading widths and everything else falls to the editor.
         let nav = NSSplitViewItem(viewController: Self.host(ShellNav(model: model)))
-        nav.minimumThickness = Theme.Metrics.noteListMinimumWidth
-        nav.maximumThickness = 340
+        nav.minimumThickness = 200
+        nav.maximumThickness = 300
         nav.canCollapse = true
         nav.holdingPriority = NSLayoutConstraint.Priority(260)
 
@@ -1239,7 +1241,7 @@ final class ShellSplitViewController: NSSplitViewController {
 
         let outline = NSSplitViewItem(viewController: Self.host(ShellOutline(model: model)))
         outline.minimumThickness = 160
-        outline.maximumThickness = 260
+        outline.maximumThickness = 240
         outline.canCollapse = true
         outline.holdingPriority = NSLayoutConstraint.Priority(240)
 
@@ -1299,16 +1301,25 @@ final class ShellSplitViewController: NSSplitViewController {
             context.timingFunction = Theme.Motion.curve
             items[2].animator().isCollapsed = !visible
         } completionHandler: { [weak self] in
-            Task { @MainActor in self?.isApplyingLayout = false }
+            Task { @MainActor in
+                // A fresh expand out of the collapsed state lands at the
+                // minimum thickness; give it its comfortable width once.
+                if visible, let self, let item = self.splitViewItems.last,
+                    item.viewController.view.frame.width < 160
+                {
+                    self.splitView.setPosition(self.splitView.bounds.width - 200, ofDividerAt: 1)
+                }
+                self?.isApplyingLayout = false
+            }
         }
     }
 
     private var isApplyingLayout = false
     private var resizeObserver: NSObjectProtocol?
 
-    /// A column dragged shut, or back open, moves `model.layout` with it, the
-    /// way ViewController+Layout keeps its visibility flags in step with the
-    /// dividers; the toggles then act from what is on screen.
+    /// A column dragged shut, or back open, moves the model's flags with it,
+    /// so the toggles and header buttons agree with what is on screen: the
+    /// navigation drag drives the layout, the outline drag its visibility.
     private func observeDividerDrags() {
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSSplitView.didResizeSubviewsNotification, object: splitView, queue: .main
@@ -1317,6 +1328,10 @@ final class ShellSplitViewController: NSSplitViewController {
                 guard let self, !self.isApplyingLayout, self.splitViewItems.count == 3 else { return }
                 let items = self.splitViewItems
                 self.model.syncLayout(navCollapsed: items[0].isCollapsed)
+                let outlineShown = !items[2].isCollapsed
+                if self.model.isOutlineVisible != outlineShown {
+                    self.model.isOutlineVisible = outlineShown
+                }
             }
         }
     }
@@ -1327,7 +1342,7 @@ final class ShellSplitViewController: NSSplitViewController {
         hasAppliedDefaultWidths = true
         // First launch only: the autosaved positions win afterwards.
         if UserDefaults.standard.object(forKey: "NSSplitView Subview Frames MiaoYanShellSplitV2") == nil {
-            splitView.setPosition(260, ofDividerAt: 0)
+            splitView.setPosition(240, ofDividerAt: 0)
         }
     }
 

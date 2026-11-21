@@ -776,7 +776,7 @@ struct ShellDetail: View {
                     ChromeButton(image: "icon_preview", help: "Toggle Preview", isActive: model.editorMode == .preview) {
                         model.toggleEditorMode()
                     }
-                    ChromeButton(symbol: "list.bullet.indent", help: "Toggle Outline", isActive: model.isOutlineVisible) {
+                    ChromeButton(symbol: "sidebar.trailing", help: "Toggle Outline", isActive: model.isOutlineVisible) {
                         model.toggleOutline()
                     }
                 }
@@ -888,11 +888,13 @@ struct ShellOutline: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 2) {
-                let size = CGFloat(UserDefaultsManagement.nameFontSize)
+                // A quiet caption, not a heading: the outline serves the
+                // note in the middle and must not fight it for attention.
+                let size = CGFloat(UserDefaultsManagement.dateFontSize)
                 Text(I18n.str("Outline"))
-                    .font(ShellStyle.interface(size, weight: ShellStyle.titleWeight))
+                    .font(ShellStyle.interface(size))
                     .kerning(ShellStyle.tracking(size))
-                    .foregroundStyle(ShellStyle.text)
+                    .foregroundStyle(ShellStyle.secondaryText)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 ChromeButton(symbol: "xmark", help: "Toggle Outline") { model.toggleOutline() }
