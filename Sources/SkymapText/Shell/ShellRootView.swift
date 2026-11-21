@@ -118,6 +118,10 @@ private struct ChromeButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Out of the key-view loop: as the first focusable control in the
+        // column, the window's initial focus used to land here and draw a
+        // focus ring on launch. The editor takes the keyboard, not the icons.
+        .focusable(false)
         .help(I18n.str(help))
         // An image-only button is read as "button" without a label.
         .accessibilityLabel(I18n.str(help))

@@ -52,6 +52,9 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // The panes have no preferred size, so assigning the controller
         // shrinks the window to its minimum; restore the default first.
         window.setContentSize(NSSize(width: 1100, height: 700))
+        // Launch focus lands in the editor, not whatever SwiftUI control
+        // happens to lead the key-view loop.
+        window.initialFirstResponder = model.editor.textView
         window.delegate = self
         // A live light/dark switch, from the system or from Settings, has to
         // reach the editor's highlight colours and the preview's CSS too; the
