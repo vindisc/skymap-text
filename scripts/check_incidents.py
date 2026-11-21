@@ -78,6 +78,11 @@ def is_shallow() -> bool:
     return git("rev-parse", "--is-shallow-repository").stdout.strip() == "true"
 
 
+# Branch `spm`: row I-01's fix commit lives in the private MiaoYan-Pro
+# repository, which a public fork can never contain. The ledger keeps
+# the factual hash; resolution skips it instead of failing the gate.
+UNRESOLVABLE_OK = {"5a65863f"}
+
 def resolves(sha: str) -> bool:
     return git("cat-file", "-e", sha + "^{commit}").returncode == 0
 
@@ -102,7 +107,7 @@ def problems(text: str, label: str, defined: set[str], check_commits: bool) -> l
                 continue
             if not SHA.match(value):
                 found.append(f"{where}: {column} is not a commit: {value}")
-            elif check_commits and not resolves(value):
+            elif check_commits and value not in UNRESOLVABLE_OK and not resolves(value):
                 found.append(f"{where}: {column} {value} does not resolve")
         if row["Layer"] not in LAYERS:
             found.append(f"{where}: layer {row['Layer']} is not one of {', '.join(LAYERS)}")

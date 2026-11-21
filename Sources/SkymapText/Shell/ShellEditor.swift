@@ -242,6 +242,22 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
         guard textView.storageNote !== note else { return }
         // NotesTableView: switching notes closes the editor's find bar.
         if textView.isSearchBarVisible { textView.hideSearchBar(restoreFocus: false) }
+        if note.isContentLoaded {
+            updateNow(note)
+        } else {
+            // A cold note's fill defers to its own task; awaiting the content
+            // here keeps the sequence ordered, so the outline and line
+            // mapping re-derive right after the buffer publishes instead of
+            // holding the previous note's rows until the next edit.
+            Task { @MainActor in
+                await note.ensureContentLoadedAsync()
+                guard self.textView.storageNote !== note else { return }
+                self.updateNow(note)
+            }
+        }
+    }
+
+    private func updateNow(_ note: Note) {
         // The storyboard list's fill: keywords of a search highlighted, the
         // scroll left alone rather than moved to the saved cursor.
         textView.fill(note: note, options: .silent)

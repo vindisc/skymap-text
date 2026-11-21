@@ -57,7 +57,7 @@ class KeyMonitorGateTests(unittest.TestCase):
         """#491: the window's local keyDown monitor returned nil for every key its handler claimed, which swallowed
         Command-C system-wide on macOS Tahoe. The monitor ends by returning the event, and its one `return nil` sits
         in an `if` that names kVK_Return (Return from the list or sidebar has already moved focus)."""
-        text = source("Controllers/ViewController.swift")
+        text = source("Sources/SkymapText/Controllers/ViewController.swift")
         monitor = re.search(r"NSEvent\.addLocalMonitorForEvents\(matching: NSEvent\.EventTypeMask\.keyDown\)", text)
         self.assertIsNotNone(monitor, "the editor's keyDown monitor moved; update this gate with it")
         lines = code_lines(block_after(text, monitor.end()))
@@ -77,16 +77,16 @@ class PreviewFrameGateTests(unittest.TestCase):
         zero width, so reopening a closed window showed a blank preview. Every frame taken from editAreaScroll's
         bounds is the fallback after previewScrollView."""
         sites = []
-        for path in ("Controllers/MainWindowController.swift", "Controllers/ViewController+Editor.swift",
-                     "Views/EditTextView.swift"):
+        for path in ("Sources/SkymapText/Controllers/MainWindowController.swift", "Sources/SkymapText/Controllers/ViewController+Editor.swift",
+                     "Sources/SkymapText/Views/EditTextView.swift"):
             for line in source(path).splitlines():
                 code = line.split("//", 1)[0]
                 if re.search(r"editAreaScroll\)?\.bounds", code):
                     sites.append((path, code.strip()))
-        self.assertIn("Controllers/MainWindowController.swift", {path for path, _ in sites})
+        self.assertIn("Sources/SkymapText/Controllers/MainWindowController.swift", {path for path, _ in sites})
         for path, code in sites:
             self.assertRegex(code, r"previewScrollView.*?\?\?\s*[\w?.]*editAreaScroll", f"{path}: {code}")
-        refresh = function_body(source("Controllers/MainWindowController.swift"), "func refreshEditArea(")
+        refresh = function_body(source("Sources/SkymapText/Controllers/MainWindowController.swift"), "func refreshEditArea(")
         self.assertRegex(refresh, r"let newFrame = \(vc\.previewScrollView \?\? vc\.editAreaScroll\)\.bounds")
 
 
@@ -95,7 +95,7 @@ class SingleModeGateTests(unittest.TestCase):
         """#503: opening one .md file stored single mode in UserDefaults, and a Command-Q or crash kept it, so the next
         launch loaded only that file's folder and the library's notes and folders seemed gone. Launch clears it
         before Storage loads projects, and terminate clears it again."""
-        text = source("Controllers/AppDelegate.swift")
+        text = source("Sources/SkymapText/Controllers/AppDelegate.swift")
         clear = "UserDefaultsManagement.clearSingleMode()"
         launch = code_lines(function_body(text, "func applicationWillFinishLaunching("))
         self.assertIn(clear, launch)
@@ -111,7 +111,7 @@ class MarkupFontGateTests(unittest.TestCase):
         # #580: under a Simplified Chinese interface the plain system face hands `[` and `]` to
         # .CJKSymbolsFallbackSC and the editor drew a link's brackets as nothing. A test process runs in
         # English and cannot switch the face's language, so the shape is gated here.
-        body = code_lines(function_body(source("Helpers/NotesTextProcessor.swift"), "public static var markupFont: NSFont"))
+        body = code_lines(function_body(source("Sources/SkymapText/Helpers/NotesTextProcessor.swift"), "public static var markupFont: NSFont"))
         self.assertTrue(any('CTFontCreateUIFontForLanguage(.system, size, "en" as CFString)' in line for line in body), body)
         self.assertFalse(any(line.startswith("NSFont.systemFont(") for line in body), body)
 

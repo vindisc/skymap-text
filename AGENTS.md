@@ -40,10 +40,25 @@ bash scripts/run_app.sh release     # rebuild + repackage + relaunch the app
 bash scripts/make_app.sh release    # assemble .build/SkymapText.app (Info.plist,
                                     #   frameworks, resources, ad-hoc sign)
 bash scripts/package_app.sh         # ditto-zip into dist/
-swiftlint lint --strict             # lint (config at .swiftlint.yml)
+bash scripts/selfcheck.sh           # build + audit scenarios + python gates
+swiftlint lint --strict             # lint (config at .swiftlint.yml, when installed)
 python3 scripts/check_incidents.py  # docs/incidents.md rows hold
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
+
+## Testing
+
+`swift test` is unavailable here (CLT ships no XCTest/Swift Testing runner).
+The self-check instead is `Sources/SkymapText/AppAudit.swift`: nine headless
+scenarios that build a temp-folder `ShellModel` and assert the audited
+behaviors — outline refresh timing (note switch, cold-note async fill,
+rendered-mode page load), merged nav rows, empty-folder hint, mixed arrow
+navigation, the two-state editor toggle with persistence, the preview reuse
+gate, and pending-rename commit on create. Run them through
+`bash scripts/selfcheck.sh` (or `.build/debug/SkymapText --audit`); the exit
+code carries the verdict. **Every bug fix on this branch lands with a
+scenario in AppAudit.swift**, and selfcheck.sh runs after every change.
+`MiaoYanTests/` and the XCTest suites are main-branch assets.
 
 Full-app builds are the default verification for any Swift or packaging
 change; `run_app.sh` is the dev loop (kills the old instance, rebuilds,

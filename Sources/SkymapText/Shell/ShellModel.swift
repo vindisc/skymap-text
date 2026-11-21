@@ -1755,8 +1755,12 @@ final class ShellModel {
     /// the note and from the note content otherwise (preview mode). Cheap
     /// enough to recompute on every edit once the column is open.
     func refreshOutline() {
-        guard isOutlineVisible, let note = selectedNote else {
+        // Resolve straight from storage: a note selected moments ago may not
+        // have landed in `notes` yet (computeNotes is a task), and the
+        // outline must follow the selection the instant it changes.
+        guard isOutlineVisible, let url = selectedNoteURL, let note = storage.getBy(url: url) else {
             if !outline.isEmpty { outline = [] }
+            print("   [diag] refreshOutline early-return: visible=\(isOutlineVisible) url=\(selectedNoteURL?.path ?? "nil") notesCount=\(notes.count) storageHas=\(storage.getBy(url: selectedNoteURL ?? URL(fileURLWithPath: "/")) != nil)")
             return
         }
         let text: String
@@ -1765,6 +1769,7 @@ final class ShellModel {
         } else {
             guard note.isContentLoaded, !note.loadFailed else {
                 if !outline.isEmpty { outline = [] }
+                print("   [diag] refreshOutline cold: note=\(note.url.lastPathComponent) loaded=\(note.isContentLoaded)")
                 return
             }
             text = note.content.string
@@ -1791,6 +1796,7 @@ final class ShellModel {
             outline = entries
             outlineSelectedBufferLine = nil
         }
+        print("   [diag] entries=\(entries.map(\.title)) loaded=\(note.isContentLoaded) bufferIsNote=\(editor.textView.storageNote === note) note=\(note.url.lastPathComponent) visible=\(isOutlineVisible)")
         updateOutlineSelectionFromViewport()
     }
 

@@ -1,42 +1,42 @@
-import XCTest
+import Testing
 
 @testable import MiaoYanCore
 
-final class MarkdownEditingTests: XCTestCase {
+@Suite struct MarkdownEditingTests {
     // MARK: Source lines
 
-    func testLineRangesEndOnlyAtCmarkLineEndings() {
+    @Test func testLineRangesEndOnlyAtCmarkLineEndings() {
         let text = "a\u{2028}b\r\nsecond\rthird\nlast" as NSString
-        XCTAssertEqual(SourceLines.range(ofLine: 0, in: text).map(text.substring(with:)), "a\u{2028}b")
-        XCTAssertEqual(SourceLines.range(ofLine: 1, in: text).map(text.substring(with:)), "second")
-        XCTAssertEqual(SourceLines.range(ofLine: 2, in: text).map(text.substring(with:)), "third")
-        XCTAssertEqual(SourceLines.range(ofLine: 3, in: text).map(text.substring(with:)), "last")
-        XCTAssertNil(SourceLines.range(ofLine: 4, in: text))
+        #expect(SourceLines.range(ofLine: 0, in: text).map(text.substring(with:)) == "a\u{2028}b")
+        #expect(SourceLines.range(ofLine: 1, in: text).map(text.substring(with:)) == "second")
+        #expect(SourceLines.range(ofLine: 2, in: text).map(text.substring(with:)) == "third")
+        #expect(SourceLines.range(ofLine: 3, in: text).map(text.substring(with:)) == "last")
+        #expect(SourceLines.range(ofLine: 4, in: text) == nil)
     }
 
-    func testLineAtOffsetMatchesLineRanges() {
+    @Test func testLineAtOffsetMatchesLineRanges() {
         let text = "one\r\ntwo\n\nfour" as NSString
         for index in 0..<4 {
             let range = SourceLines.range(ofLine: index, in: text)!
-            XCTAssertEqual(SourceLines.line(atOffset: range.location, in: text), index)
-            XCTAssertEqual(SourceLines.line(atOffset: NSMaxRange(range), in: text), index)
+            #expect(SourceLines.line(atOffset: range.location, in: text) == index)
+            #expect(SourceLines.line(atOffset: NSMaxRange(range), in: text) == index)
         }
-        XCTAssertEqual(SourceLines.line(atOffset: 999, in: text), 3)
+        #expect(SourceLines.line(atOffset: 999, in: text) == 3)
     }
 
     // MARK: Task marker
 
-    func testToggleCountsBodyLinesAfterFrontmatter() {
+    @Test func testToggleCountsBodyLinesAfterFrontmatter() {
         let text = "---\ntitle: a\n---\nintro\n- [ ] first\n- [x] second\n"
-        XCTAssertEqual(TaskMarker.toggled(text, bodyLine: 2), "---\ntitle: a\n---\nintro\n- [x] first\n- [x] second\n")
-        XCTAssertEqual(TaskMarker.toggled(text, bodyLine: 3), "---\ntitle: a\n---\nintro\n- [ ] first\n- [ ] second\n")
-        XCTAssertNil(TaskMarker.toggled(text, bodyLine: 1))
-        XCTAssertNil(TaskMarker.toggled(text, bodyLine: 9))
+        #expect(TaskMarker.toggled(text, bodyLine: 2) == "---\ntitle: a\n---\nintro\n- [x] first\n- [x] second\n")
+        #expect(TaskMarker.toggled(text, bodyLine: 3) == "---\ntitle: a\n---\nintro\n- [ ] first\n- [ ] second\n")
+        #expect(TaskMarker.toggled(text, bodyLine: 1) == nil)
+        #expect(TaskMarker.toggled(text, bodyLine: 9) == nil)
     }
 
-    func testToggleReachesNestedAndQuotedItems() {
-        XCTAssertEqual(TaskMarker.toggled("- a\n  1. [ ] b", bodyLine: 2), "- a\n  1. [x] b")
-        XCTAssertEqual(TaskMarker.toggled("> - [X] q", bodyLine: 1), "> - [ ] q")
+    @Test func testToggleReachesNestedAndQuotedItems() {
+        #expect(TaskMarker.toggled("- a\n  1. [ ] b", bodyLine: 2) == "- a\n  1. [x] b")
+        #expect(TaskMarker.toggled("> - [X] q", bodyLine: 1) == "> - [ ] q")
     }
 
     // MARK: List continuation
@@ -47,112 +47,112 @@ final class MarkdownEditingTests: XCTestCase {
         return (ns.replacingCharacters(in: edit.range, with: edit.replacement), edit.caret)
     }
 
-    func testReturnContinuesBulletsNumbersAndTasks() {
-        XCTAssertEqual(pressReturn("- one")?.0, "- one\n- ")
-        XCTAssertEqual(pressReturn("* one")?.0, "* one\n* ")
-        XCTAssertEqual(pressReturn("9. nine")?.0, "9. nine\n10. ")
-        XCTAssertEqual(pressReturn("1) one")?.0, "1) one\n2) ")
-        XCTAssertEqual(pressReturn("- [x] done")?.0, "- [x] done\n- [ ] ")
-        XCTAssertEqual(pressReturn("  - nested")?.0, "  - nested\n  - ")
-        XCTAssertEqual(pressReturn("> - quoted")?.0, "> - quoted\n> - ")
-        XCTAssertEqual(pressReturn("- 中文条目")?.1, ("- 中文条目\n- " as NSString).length)
+    @Test func testReturnContinuesBulletsNumbersAndTasks() {
+        #expect(pressReturn("- one")?.0 == "- one\n- ")
+        #expect(pressReturn("* one")?.0 == "* one\n* ")
+        #expect(pressReturn("9. nine")?.0 == "9. nine\n10. ")
+        #expect(pressReturn("1) one")?.0 == "1) one\n2) ")
+        #expect(pressReturn("- [x] done")?.0 == "- [x] done\n- [ ] ")
+        #expect(pressReturn("  - nested")?.0 == "  - nested\n  - ")
+        #expect(pressReturn("> - quoted")?.0 == "> - quoted\n> - ")
+        #expect(pressReturn("- 中文条目")?.1 == ("- 中文条目\n- " as NSString).length)
     }
 
-    func testReturnOnAnEmptyItemEndsTheList() {
-        XCTAssertEqual(pressReturn("- one\n- ")?.0, "- one\n")
-        XCTAssertEqual(pressReturn("- one\n- ")?.1, 6)
-        XCTAssertEqual(pressReturn("- [ ] ")?.0, "")
-        XCTAssertEqual(pressReturn("- [ ]")?.0, "")
-        XCTAssertEqual(pressReturn("2. ")?.0, "")
+    @Test func testReturnOnAnEmptyItemEndsTheList() {
+        #expect(pressReturn("- one\n- ")?.0 == "- one\n")
+        #expect(pressReturn("- one\n- ")?.1 == 6)
+        #expect(pressReturn("- [ ] ")?.0 == "")
+        #expect(pressReturn("- [ ]")?.0 == "")
+        #expect(pressReturn("2. ")?.0 == "")
     }
 
-    func testReturnElsewhereIsAPlainNewline() {
-        XCTAssertNil(pressReturn("plain text"))
-        XCTAssertNil(pressReturn("- one", at: 3))
-        XCTAssertNil(pressReturn("-not a list"))
-        XCTAssertNil(pressReturn("**bold** line"))
-        XCTAssertNil(pressReturn("---"))
-        XCTAssertNil(pressReturn("- one\nplain"))
+    @Test func testReturnElsewhereIsAPlainNewline() {
+        #expect(pressReturn("plain text") == nil)
+        #expect(pressReturn("- one", at: 3) == nil)
+        #expect(pressReturn("-not a list") == nil)
+        #expect(pressReturn("**bold** line") == nil)
+        #expect(pressReturn("---") == nil)
+        #expect(pressReturn("- one\nplain") == nil)
     }
 
-    func testReturnOnAMiddleLineContinuesThatLine() {
+    @Test func testReturnOnAMiddleLineContinuesThatLine() {
         let text = "- one\n- two\nend"
         let caret = ("- one" as NSString).length
-        XCTAssertEqual(pressReturn(text, at: caret)?.0, "- one\n- \n- two\nend")
+        #expect(pressReturn(text, at: caret)?.0 == "- one\n- \n- two\nend")
     }
 
-    func testReturnWorksOnCRLFNotes() {
-        XCTAssertEqual(pressReturn("- one\r\n- two", at: 5)?.0, "- one\r\n- \r\n- two")
-        XCTAssertEqual(pressReturn("intro\r\n- last")?.0, "intro\r\n- last\r\n- ")
+    @Test func testReturnWorksOnCRLFNotes() {
+        #expect(pressReturn("- one\r\n- two", at: 5)?.0 == "- one\r\n- \r\n- two")
+        #expect(pressReturn("intro\r\n- last")?.0 == "intro\r\n- last\r\n- ")
     }
 
     /// U+2028 and U+2029 do not end a line for cmark, so `- ` after one is
     /// text inside the line, not an empty item to delete.
-    func testReturnTreatsUnicodeSeparatorsAsTextInTheLine() {
+    @Test func testReturnTreatsUnicodeSeparatorsAsTextInTheLine() {
         for separator in ["\u{2028}", "\u{2029}"] {
-            XCTAssertNil(pressReturn("pasted\(separator)- "), separator.debugDescription)
-            XCTAssertNil(pressReturn("pasted\(separator)- [ ] "), separator.debugDescription)
-            XCTAssertEqual(pressReturn("- a\(separator)b")?.0, "- a\(separator)b\n- ", separator.debugDescription)
-            XCTAssertEqual(pressReturn("- a\(separator)")?.0, "- a\(separator)\n- ", separator.debugDescription)
+            #expect(pressReturn("pasted\(separator)- ") == nil)
+            #expect(pressReturn("pasted\(separator)- [ ] ") == nil)
+            #expect(pressReturn("- a\(separator)b")?.0 == "- a\(separator)b\n- ", separator.debugDescription)
+            #expect(pressReturn("- a\(separator)")?.0 == "- a\(separator)\n- ", separator.debugDescription)
         }
     }
 
-    func testAThematicBreakIsNotAListItem() {
-        XCTAssertNil(pressReturn("* * *"))
-        XCTAssertNil(pressReturn("- - -"))
-        XCTAssertNil(pressReturn("  * * * *"))
-        XCTAssertEqual(pressReturn("- - nested dash")?.0, "- - nested dash\n- ")
+    @Test func testAThematicBreakIsNotAListItem() {
+        #expect(pressReturn("* * *") == nil)
+        #expect(pressReturn("- - -") == nil)
+        #expect(pressReturn("  * * * *") == nil)
+        #expect(pressReturn("- - nested dash")?.0 == "- - nested dash\n- ")
     }
 
     /// The Mac editor continued `> ` quote lines and the iPhone did not;
     /// both run this rule now, so a quote continues at its depth and an
     /// empty quote line ends it, as an empty item ends its list.
-    func testReturnContinuesQuotesAtTheirDepth() {
-        XCTAssertEqual(pressReturn("> quoted")?.0, "> quoted\n> ")
-        XCTAssertEqual(pressReturn("> quoted")?.1, ("> quoted\n> " as NSString).length)
-        XCTAssertEqual(pressReturn("> > deeper")?.0, "> > deeper\n> > ")
-        XCTAssertEqual(pressReturn("  > indented")?.0, "  > indented\n  > ")
-        XCTAssertEqual(pressReturn(">  two spaces")?.0, ">  two spaces\n>  ")
-        XCTAssertEqual(pressReturn("> > - quoted item")?.0, "> > - quoted item\n> > - ")
-        XCTAssertEqual(pressReturn("> 1) quoted")?.0, "> 1) quoted\n> 2) ")
-        XCTAssertEqual(pressReturn("> a\r\nend", at: 3)?.0, "> a\r\n> \r\nend")
+    @Test func testReturnContinuesQuotesAtTheirDepth() {
+        #expect(pressReturn("> quoted")?.0 == "> quoted\n> ")
+        #expect(pressReturn("> quoted")?.1 == ("> quoted\n> " as NSString).length)
+        #expect(pressReturn("> > deeper")?.0 == "> > deeper\n> > ")
+        #expect(pressReturn("  > indented")?.0 == "  > indented\n  > ")
+        #expect(pressReturn(">  two spaces")?.0 == ">  two spaces\n>  ")
+        #expect(pressReturn("> > - quoted item")?.0 == "> > - quoted item\n> > - ")
+        #expect(pressReturn("> 1) quoted")?.0 == "> 1) quoted\n> 2) ")
+        #expect(pressReturn("> a\r\nend", at: 3)?.0 == "> a\r\n> \r\nend")
     }
 
-    func testReturnOnAnEmptyQuoteLineEndsTheQuote() {
-        XCTAssertEqual(pressReturn("> a\n> ")?.0, "> a\n")
-        XCTAssertEqual(pressReturn("> a\n> ")?.1, 4)
-        XCTAssertEqual(pressReturn("> > ")?.0, "")
-        XCTAssertEqual(pressReturn("> a\n>  \nend", at: 7)?.0, "> a\n\nend")
-        XCTAssertNil(pressReturn(">"))
-        XCTAssertNil(pressReturn(">no space"))
+    @Test func testReturnOnAnEmptyQuoteLineEndsTheQuote() {
+        #expect(pressReturn("> a\n> ")?.0 == "> a\n")
+        #expect(pressReturn("> a\n> ")?.1 == 4)
+        #expect(pressReturn("> > ")?.0 == "")
+        #expect(pressReturn("> a\n>  \nend", at: 7)?.0 == "> a\n\nend")
+        #expect(pressReturn(">") == nil)
+        #expect(pressReturn(">no space") == nil)
     }
 
     /// `- name:` in a YAML block is code: the Mac editor wrote a `- ` after
     /// it, the iPhone checked fences itself; the rule skips fences now.
-    func testReturnInsideAFencedCodeBlockIsAPlainNewline() {
+    @Test func testReturnInsideAFencedCodeBlockIsAPlainNewline() {
         let yaml = "```yaml\n- name: a\n> not a quote\n1) step\n```\n- after"
         let ns = yaml as NSString
         for line in ["- name: a", "> not a quote", "1) step"] {
             let caret = NSMaxRange(ns.range(of: line))
-            XCTAssertNil(pressReturn(yaml, at: caret), line)
-            XCTAssertTrue(ListContinuation.isInFencedCode(at: caret, in: ns), line)
+            #expect(pressReturn(yaml, at: caret) == nil)
+            #expect(ListContinuation.isInFencedCode(at: caret, in: ns))
         }
-        XCTAssertEqual(pressReturn(yaml)?.0, yaml + "\n- ")
-        XCTAssertFalse(ListContinuation.isInFencedCode(at: ns.length, in: ns))
-        XCTAssertNil(pressReturn("intro\r\n```\r\n- a\r\n```\r\n", at: 15))
-        XCTAssertNotNil(pressReturn("intro\r\n```\r\n- a\r\n", at: 15))
-        XCTAssertNil(pressReturn("```\n- a\n```  \n", at: 7))
+        #expect(pressReturn(yaml)?.0 == yaml + "\n- ")
+        #expect(!(ListContinuation.isInFencedCode(at: ns.length, in: ns)))
+        #expect(pressReturn("intro\r\n```\r\n- a\r\n```\r\n", at: 15) == nil)
+        #expect(pressReturn("intro\r\n```\r\n- a\r\n", at: 15) != nil)
+        #expect(pressReturn("```\n- a\n```  \n", at: 7) == nil)
         // A fence never closed is drawn as text and stays a list.
-        XCTAssertEqual(pressReturn("```\n- a")?.0, "```\n- a\n- ")
-        XCTAssertEqual(pressReturn("```\nx\n```\n- a")?.0, "```\nx\n```\n- a\n- ")
+        #expect(pressReturn("```\n- a")?.0 == "```\n- a\n- ")
+        #expect(pressReturn("```\nx\n```\n- a")?.0 == "```\nx\n```\n- a\n- ")
         // An indented fence is no fence for the editors' highlighting.
-        XCTAssertEqual(pressReturn("  ```\n- a\n  ```", at: 9)?.0, "  ```\n- a\n- \n  ```")
+        #expect(pressReturn("  ```\n- a\n  ```", at: 9)?.0 == "  ```\n- a\n- \n  ```")
     }
 
-    func testLineBreakFollowsTheNote() {
-        XCTAssertEqual(ListContinuation.lineBreak(in: "a\nb"), "\n")
-        XCTAssertEqual(ListContinuation.lineBreak(in: "a\r\nb"), "\r\n")
-        XCTAssertEqual(ListContinuation.lineBreak(in: ""), "\n")
+    @Test func testLineBreakFollowsTheNote() {
+        #expect(ListContinuation.lineBreak(in: "a\nb") == "\n")
+        #expect(ListContinuation.lineBreak(in: "a\r\nb") == "\r\n")
+        #expect(ListContinuation.lineBreak(in: "") == "\n")
     }
 
     // MARK: Line edits
@@ -162,17 +162,17 @@ final class MarkdownEditingTests: XCTestCase {
         return ((text as NSString).replacingCharacters(in: edit.range, with: edit.replacement), edit.selection)
     }
 
-    func testIndentAndOutdentCoverEveryLineOfTheSelection() {
+    @Test func testIndentAndOutdentCoverEveryLineOfTheSelection() {
         let text = "- a\n- b\n\n- c"
         let all = NSRange(location: 0, length: (text as NSString).length)
         let indented = apply(LineEdits.indent(in: text as NSString, selection: all), to: text)
-        XCTAssertEqual(indented?.0, "  - a\n  - b\n\n  - c")
-        XCTAssertEqual(indented?.1, NSRange(location: 0, length: 18))
+        #expect(indented?.0 == "  - a\n  - b\n\n  - c")
+        #expect(indented?.1 == NSRange(location: 0, length: 18))
         let back = apply(LineEdits.outdent(in: indented!.0 as NSString, selection: indented!.1), to: indented!.0)
-        XCTAssertEqual(back?.0, text)
-        XCTAssertNil(LineEdits.outdent(in: text as NSString, selection: all))
-        XCTAssertEqual(apply(LineEdits.outdent(in: "\tx" as NSString, selection: NSRange(location: 1, length: 0)), to: "\tx")?.0, "x")
-        XCTAssertEqual(apply(LineEdits.outdent(in: " x" as NSString, selection: NSRange(location: 1, length: 0)), to: " x")?.0, "x")
+        #expect(back?.0 == text)
+        #expect(LineEdits.outdent(in: text as NSString, selection: all) == nil)
+        #expect(apply(LineEdits.outdent(in: "\tx" as NSString, selection: NSRange(location: 1, length: 0)), to: "\tx")?.0 == "x")
+        #expect(apply(LineEdits.outdent(in: " x" as NSString, selection: NSRange(location: 1, length: 0)), to: " x")?.0 == "x")
     }
 
     /// Indent then outdent on the last line, or on `selection` when given.
@@ -184,66 +184,66 @@ final class MarkdownEditingTests: XCTestCase {
         return (indented.0, back?.0)
     }
 
-    func testIndentUnderAnOrderedItemNestsAtItsContentColumn() {
-        XCTAssertEqual(indentRoundTrip("1. a\n- b").0, "1. a\n   - b")
-        XCTAssertEqual(indentRoundTrip("1. a\n- b").1, "1. a\n- b")
-        XCTAssertEqual(indentRoundTrip("10. a\n- b").0, "10. a\n    - b")
-        XCTAssertEqual(indentRoundTrip("10. a\n- b").1, "10. a\n- b")
-        XCTAssertEqual(indentRoundTrip("1) a\n- b").0, "1) a\n   - b")
-        XCTAssertEqual(indentRoundTrip("1.  a\n- b").0, "1.  a\n    - b")
+    @Test func testIndentUnderAnOrderedItemNestsAtItsContentColumn() {
+        #expect(indentRoundTrip("1. a\n- b").0 == "1. a\n   - b")
+        #expect(indentRoundTrip("1. a\n- b").1 == "1. a\n- b")
+        #expect(indentRoundTrip("10. a\n- b").0 == "10. a\n    - b")
+        #expect(indentRoundTrip("10. a\n- b").1 == "10. a\n- b")
+        #expect(indentRoundTrip("1) a\n- b").0 == "1) a\n   - b")
+        #expect(indentRoundTrip("1.  a\n- b").0 == "1.  a\n    - b")
         // An ordered item that is itself nested.
-        XCTAssertEqual(indentRoundTrip("- x\n  1. a\n  - b").0, "- x\n  1. a\n     - b")
-        XCTAssertEqual(indentRoundTrip("- x\n  1. a\n  - b").1, "- x\n  1. a\n  - b")
+        #expect(indentRoundTrip("- x\n  1. a\n  - b").0 == "- x\n  1. a\n     - b")
+        #expect(indentRoundTrip("- x\n  1. a\n  - b").1 == "- x\n  1. a\n  - b")
         // Every selected line moves by the same amount.
         let text = "1. a\n- b\n- c"
         let lines = NSRange(location: 5, length: 7)
-        XCTAssertEqual(indentRoundTrip(text, selection: lines).0, "1. a\n   - b\n   - c")
-        XCTAssertEqual(indentRoundTrip(text, selection: lines).1, text)
+        #expect(indentRoundTrip(text, selection: lines).0 == "1. a\n   - b\n   - c")
+        #expect(indentRoundTrip(text, selection: lines).1 == text)
     }
 
-    func testIndentOutsideOrderedItemsStaysTwoSpaces() {
-        XCTAssertEqual(indentRoundTrip("- a\n- b").0, "- a\n  - b")
-        XCTAssertEqual(indentRoundTrip("- a\n- b").1, "- a\n- b")
-        XCTAssertEqual(indentRoundTrip("plain\n- b").0, "plain\n  - b")
-        XCTAssertEqual(indentRoundTrip("1.5 kg\n- b").0, "1.5 kg\n  - b")
+    @Test func testIndentOutsideOrderedItemsStaysTwoSpaces() {
+        #expect(indentRoundTrip("- a\n- b").0 == "- a\n  - b")
+        #expect(indentRoundTrip("- a\n- b").1 == "- a\n- b")
+        #expect(indentRoundTrip("plain\n- b").0 == "plain\n  - b")
+        #expect(indentRoundTrip("1.5 kg\n- b").0 == "1.5 kg\n  - b")
         // Already at or past the item's content: plain two spaces.
-        XCTAssertEqual(indentRoundTrip("1. a\n   - b").0, "1. a\n     - b")
-        XCTAssertEqual(indentRoundTrip("1. a\n   - b").1, "1. a\n   - b")
+        #expect(indentRoundTrip("1. a\n   - b").0 == "1. a\n     - b")
+        #expect(indentRoundTrip("1. a\n   - b").1 == "1. a\n   - b")
     }
 
-    func testACaretKeepsItsPlaceInTheLine() {
+    @Test func testACaretKeepsItsPlaceInTheLine() {
         let text = "one\n- two\nthree"
         let caret = NSRange(location: 7, length: 0)  // "- t|wo"
         let edit = apply(LineEdits.indent(in: text as NSString, selection: caret), to: text)
-        XCTAssertEqual(edit?.0, "one\n  - two\nthree")
-        XCTAssertEqual(edit?.1, NSRange(location: 9, length: 0))
+        #expect(edit?.0 == "one\n  - two\nthree")
+        #expect(edit?.1 == NSRange(location: 9, length: 0))
     }
 
-    func testToggleTaskTicksClearsAndCreates() {
+    @Test func testToggleTaskTicksClearsAndCreates() {
         func toggle(_ text: String) -> String? {
             apply(LineEdits.toggleTask(in: text as NSString, selection: NSRange(location: 0, length: 0)), to: text)?.0
         }
-        XCTAssertEqual(toggle("- [ ] a"), "- [x] a")
-        XCTAssertEqual(toggle("  - [x] a"), "  - [ ] a")
-        XCTAssertEqual(toggle("- a"), "- [ ] a")
-        XCTAssertEqual(toggle("2. a"), "2. [ ] a")
-        XCTAssertEqual(toggle("plain"), "- [ ] plain")
-        XCTAssertEqual(toggle("  plain"), "  - [ ] plain")
-        XCTAssertNil(toggle(""))
-        XCTAssertEqual(toggle("- [ ] a\r\nnext"), "- [x] a\r\nnext")
+        #expect(toggle("- [ ] a") == "- [x] a")
+        #expect(toggle("  - [x] a") == "  - [ ] a")
+        #expect(toggle("- a") == "- [ ] a")
+        #expect(toggle("2. a") == "2. [ ] a")
+        #expect(toggle("plain") == "- [ ] plain")
+        #expect(toggle("  plain") == "  - [ ] plain")
+        #expect(toggle("") == nil)
+        #expect(toggle("- [ ] a\r\nnext") == "- [x] a\r\nnext")
     }
 
-    func testToggleTaskKeepsTheQuote() {
+    @Test func testToggleTaskKeepsTheQuote() {
         func toggle(_ text: String) -> String? {
             apply(LineEdits.toggleTask(in: text as NSString, selection: NSRange(location: 0, length: 0)), to: text)?.0
         }
-        XCTAssertEqual(toggle("> quote"), "> - [ ] quote")
-        XCTAssertEqual(toggle("> - [ ] quote"), "> - [x] quote")
-        XCTAssertEqual(toggle("> - [x] a"), "> - [ ] a")
-        XCTAssertEqual(toggle("> > quote"), "> > - [ ] quote")
-        XCTAssertEqual(toggle(">quote"), ">- [ ] quote")
-        XCTAssertEqual(toggle("  > quote"), "  > - [ ] quote")
-        XCTAssertEqual(toggle("> - a"), "> - [ ] a")
-        XCTAssertEqual(toggle("> 1. a"), "> 1. [ ] a")
+        #expect(toggle("> quote") == "> - [ ] quote")
+        #expect(toggle("> - [ ] quote") == "> - [x] quote")
+        #expect(toggle("> - [x] a") == "> - [ ] a")
+        #expect(toggle("> > quote") == "> > - [ ] quote")
+        #expect(toggle(">quote") == ">- [ ] quote")
+        #expect(toggle("  > quote") == "  > - [ ] quote")
+        #expect(toggle("> - a") == "> - [ ] a")
+        #expect(toggle("> 1. a") == "> 1. [ ] a")
     }
 }

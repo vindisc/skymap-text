@@ -34,17 +34,17 @@ TIERS = [
     ]),
     ("notes", "a test red on the old code (.claude/rules/testing.md); a review against the risk areas in .claude/rules: recoverable "
               "Trash, fail-closed saves, buffer ownership; the flow run in the built app", [
-        "Sources/SkymapText/Business/Storage.swift", "Business/Note.swift", "Business/Project.swift", "Business/NoteVersionManager.swift",
-        "Helpers/FileSystemEventManager.swift", "Helpers/FileWatcher*.swift", "Helpers/ClipboardManager.swift",
-        "Helpers/TypographyCleaner.swift", "Sources/SkymapText/Views/EditTextView.swift", "Views/SidebarProjectView.swift",
+        "Sources/SkymapText/Business/Storage.swift", "Sources/SkymapText/Business/Note.swift", "Sources/SkymapText/Business/Project.swift", "Sources/SkymapText/Business/NoteVersionManager.swift",
+        "Sources/SkymapText/Helpers/FileSystemEventManager.swift", "Sources/SkymapText/Helpers/FileWatcher*.swift", "Sources/SkymapText/Helpers/ClipboardManager.swift",
+        "Sources/SkymapText/Helpers/TypographyCleaner.swift", "Sources/SkymapText/Views/EditTextView.swift", "Sources/SkymapText/Views/SidebarProjectView.swift",
         "Sources/SkymapText/Controllers/ViewController+Action.swift", "Sources/SkymapText/Shell/ShellModel+Folders.swift",
     ]),
     ("sync", "a run with iCloud unavailable and one through a symlinked library", [
-        "Business/CloudSyncManager.swift",
+        "Sources/SkymapText/Business/CloudSyncManager.swift",
     ]),
     ("export", "Mermaid, images, PDF pagination and async readiness checked together, PNG export repeated", [
-        "Business/HtmlManager.swift", "Helpers/PdfExportController.swift", "Extensions/MPreviewView+Export.swift",
-        "Shell/ShellModel+Export.swift", "Resources/DownView.bundle/*",
+        "Sources/SkymapText/Business/HtmlManager.swift", "Sources/SkymapText/Helpers/PdfExportController.swift", "Sources/SkymapText/Extensions/MPreviewView+Export.swift",
+        "Sources/SkymapText/Shell/ShellModel+Export.swift", "Resources/DownView.bundle/*",
     ]),
     ("core", "swift test --package-path Packages/MiaoYanCore, with the public API kept stable for the iPhone app", [
         "Packages/MiaoYanCore/Sources/*",

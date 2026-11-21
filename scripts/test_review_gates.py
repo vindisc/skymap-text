@@ -101,7 +101,7 @@ class RiskTierTests(unittest.TestCase):
     def test_a_change_takes_every_tier_it_reaches_highest_first(self):
         self.assertEqual(
             ["release", "notes", "export"],
-            self.names("Business/HtmlManager.swift", "Business/Storage.swift", ".github/workflows/ci.yml"),
+            self.names("Sources/SkymapText/Business/HtmlManager.swift", "Sources/SkymapText/Business/Storage.swift", ".github/workflows/ci.yml"),
         )
 
     def test_the_sensitive_surfaces_are_never_default(self):
@@ -111,9 +111,9 @@ class RiskTierTests(unittest.TestCase):
             "Info.plist": "release",
             "scripts/install.sh": "installer",
             "scripts/miaoyan": "installer",
-            "Business/Note.swift": "notes",
-            "Views/EditTextView.swift": "notes",
-            "Business/CloudSyncManager.swift": "sync",
+            "Sources/SkymapText/Business/Note.swift": "notes",
+            "Sources/SkymapText/Views/EditTextView.swift": "notes",
+            "Sources/SkymapText/Business/CloudSyncManager.swift": "sync",
             "Resources/DownView.bundle/js/app.js": "export",
             "Packages/MiaoYanCore/Sources/MiaoYanCore/NoteText.swift": "core",
         }.items():
@@ -125,7 +125,7 @@ class RiskTierTests(unittest.TestCase):
             [],
             self.names(
                 "docs/incidents.md", "AGENTS.md", "MiaoYanTests/NoteSaveDebounceTests.swift",
-                "Shell/ShellPalette.swift", "Packages/MiaoYanCore/Tests/MiaoYanCoreTests/NoteSearchTests.swift",
+                "Sources/SkymapText/Shell/ShellPalette.swift", "Packages/MiaoYanCore/Tests/MiaoYanCoreTests/NoteSearchTests.swift",
             ),
         )
 

@@ -36,7 +36,12 @@ let package = Package(
             path: "Sources/SkymapText",
             // Matches the storyboard project's SWIFT_VERSION 5; strict Swift 6
             // concurrency would otherwise flag the legacy AppKit code paths.
-            swiftSettings: [.swiftLanguageMode(.v5)]
-        )
+            // -enable-testing makes @testable imports work for the audit
+            // executable, which SwiftPM only enables for .testTarget builds.
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .unsafeFlags(["-enable-testing"]),
+            ]
+        ),
     ]
 )

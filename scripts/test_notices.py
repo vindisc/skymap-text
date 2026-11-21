@@ -20,8 +20,13 @@ class NoticesGateTests(unittest.TestCase):
         self.assertEqual(missing, [], "vendored files with no entry in THIRD-PARTY-NOTICES.md")
 
     def test_every_swift_package_is_named_at_its_resolved_version(self):
+        # Branch `spm` pins its dependencies in the root Package.resolved;
+        # main pins them in the xcodeproj's swiftpm resolution. Prefer the
+        # root file when it exists.
+        rootResolved = ROOT / "Package.resolved"
+        xcodeResolved = ROOT / "MiaoYan.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
         resolved = json.loads(
-            (ROOT / "MiaoYan.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved").read_text("utf-8")
+            (rootResolved if rootResolved.exists() else xcodeResolved).read_text("utf-8")
         )
         headings = set(re.findall(r"^### (.+)$", NOTICES, re.MULTILINE))
         missing = []
