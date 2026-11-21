@@ -1,3 +1,10 @@
+> **Fork note:** this repository's `spm` branch builds **SkymapText** — a
+> pure-SwiftPM two-pane restructure of MiaoYan (merged navigation column,
+> outline column, Command-E two-state editor). Build from source:
+> `swift build -c release`, then `bash scripts/make_app.sh release`
+> (requires macOS 14+; Command Line Tools suffice — no Xcode). The product
+> copy below describes MiaoYan on `main`.
+
 <div align="center">
   <a href="https://miaoyan.app/" target="_blank"><img src="https://raw.githubusercontent.com/tw93/MiaoYan/main/Resources/app.icon/Assets/43.png" width="138" /></a>
   <h1>MiaoYan</h1>

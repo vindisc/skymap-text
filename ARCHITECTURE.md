@@ -1,23 +1,28 @@
 # MiaoYan Architecture
 
-> This document describes the current implementation. Target membership in
-> `MiaoYan.xcodeproj/project.pbxproj` is authoritative when the code changes.
+> **Branch note (`spm`):** this branch is a pure-SwiftPM app named
+> **SkymapText** — one executable target under `Sources/SkymapText/`, the
+> shell window is the whole app, there is no storyboard at runtime, and
+> packaging is `scripts/make_app.sh` (see `AGENTS.md`). Everything below
+> about the storyboard window, the three-column layout, MiaoYan-Pro and the
+> App Store flow describes the **`main` branch only**.
 
 ## Top-Level Map
 
 ```
 .
-├── Business/        # Models and core domain logic (Storage, Note, Project, WikilinkIndex, ...)
-├── Controllers/     # AppKit view controllers and window controllers
-├── Views/           # AppKit UI components (NSView / NSOutlineView / NSTableView subclasses)
-├── Helpers/         # Utilities and services (highlighting, formatting, theming, diagnostics)
-├── Extensions/      # Swift extensions on Foundation / AppKit types
-├── Resources/       # Bundled assets, including DownView.bundle (HTML/CSS/JS for preview)
-├── Shell/           # SwiftUI main window behind -MiaoYanShell YES
-├── Packages/        # MiaoYanCore, logic shared with the iPhone app in MiaoYan-Pro
-├── MiaoYanTests/    # Unit tests for pure-logic surfaces
-├── skills/          # Published Agent Skill for MiaoYan's Markdown, PPT and CLI
-└── scripts/         # Local build, release helpers, target wiring (Ruby + bash)
+├── Sources/SkymapText/
+│   ├── Business/    # Models and core domain logic (Storage, Note, Project, WikilinkIndex, ...)
+│   ├── Controllers/ # AppDelegate, MainMenuBuilder, prefs windows, storyboard-era classes (dormant)
+│   ├── Views/       # EditTextView, MPreviewView, storyboard-era views (dormant)
+│   ├── Helpers/     # Highlighting, formatting, theming, diagnostics
+│   ├── Extensions/  # Swift extensions on Foundation / AppKit types
+│   ├── Shell/       # THE app: ShellWindowController / ShellModel / ShellRootView / ShellEditor
+│   └── main.swift   # Programmatic NSApplication bootstrap (no storyboard)
+├── Packages/        # MiaoYanCore (shared pure logic) + vendored KeyboardShortcuts
+├── Resources/       # DownView.bundle (preview), Fonts, Localization, Images.xcassets
+├── scripts/         # make_app.sh / run_app.sh / package_app.sh (+ main-branch helpers)
+└── docs/            # incidents ledger, release notes (review-gate input)
 ```
 
 ## Process Model

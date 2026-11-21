@@ -1,3 +1,9 @@
+> **Fork 说明：** 本仓库的 `spm` 分支构建 **SkymapText**——基于妙言的纯
+> SwiftPM 两栏重构（导航合栏 + 大纲栏 + ⌘E 双态编辑）。从源码构建：
+> `swift build -c release`，然后 `bash scripts/make_app.sh release`
+>（需要 macOS 14+；仅需 Command Line Tools，无需 Xcode）。以下产品介绍
+> 描述的是 `main` 分支的妙言本体。
+
 <div align="center">
   <a href="https://miaoyan.app/" target="_blank"><img src="https://raw.githubusercontent.com/tw93/MiaoYan/main/Resources/app.icon/Assets/43.png" width="138" /></a>
   <h1>妙言</h1>

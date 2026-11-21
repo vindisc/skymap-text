@@ -157,7 +157,7 @@ The reveal.js files also contain:
 
 ## Swift packages
 
-### Sparkle 2.9.0
+### Sparkle 2.8.0
 
 - **Source:** <https://github.com/sparkle-project/Sparkle>
 - **License:** MIT License, with the external licenses Sparkle lists for its
@@ -184,7 +184,8 @@ The complete Sparkle license appears below.
 ### KeyboardShortcuts 2.4.0
 
 - **Source:** <https://github.com/sindresorhus/KeyboardShortcuts>
-- **Copyright:** Copyright (c) Sindre Sorhus <sindresorhus@gmail.com>
+- **Copyright:** Copyright (c) Sindre Sorhus
+Vendored at Packages/KeyboardShortcuts (branch `spm`) with Command Line Tools compatibility patches. <sindresorhus@gmail.com>
   (https://sindresorhus.com)
 - **License:** MIT License
 - **Bundled file:** `KeyboardShortcuts_KeyboardShortcuts.bundle`
@@ -1088,7 +1089,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-### Sparkle 2.9.0 License
+### Sparkle 2.8.0 License
 
 ```text
 Copyright (c) 2006-2013 Andy Matuschak.

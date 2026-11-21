@@ -34,10 +34,10 @@ TIERS = [
     ]),
     ("notes", "a test red on the old code (.claude/rules/testing.md); a review against the risk areas in .claude/rules: recoverable "
               "Trash, fail-closed saves, buffer ownership; the flow run in the built app", [
-        "Business/Storage.swift", "Business/Note.swift", "Business/Project.swift", "Business/NoteVersionManager.swift",
+        "Sources/SkymapText/Business/Storage.swift", "Business/Note.swift", "Business/Project.swift", "Business/NoteVersionManager.swift",
         "Helpers/FileSystemEventManager.swift", "Helpers/FileWatcher*.swift", "Helpers/ClipboardManager.swift",
-        "Helpers/TypographyCleaner.swift", "Views/EditTextView.swift", "Views/SidebarProjectView.swift",
-        "Controllers/ViewController+Action.swift", "Shell/ShellModel+Folders.swift",
+        "Helpers/TypographyCleaner.swift", "Sources/SkymapText/Views/EditTextView.swift", "Views/SidebarProjectView.swift",
+        "Sources/SkymapText/Controllers/ViewController+Action.swift", "Sources/SkymapText/Shell/ShellModel+Folders.swift",
     ]),
     ("sync", "a run with iCloud unavailable and one through a symlinked library", [
         "Business/CloudSyncManager.swift",

@@ -57,6 +57,8 @@ done
 # The app icon is MiaoYan's own app.icns; Markdown.icns is the
 # document-type icon and read as a wrong Dock glyph.
 cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/$APP_NAME.icns"
+# The Open Source Licenses window loads this from the bundle.
+cp "$ROOT_DIR/THIRD-PARTY-NOTICES.md" "$RESOURCES_DIR/THIRD-PARTY-NOTICES.md"
 
 # Localization: every lproj keeps its strings tables (Main.strings included
 # so the programmatic menu can localize its titles). InfoPlist.strings is
