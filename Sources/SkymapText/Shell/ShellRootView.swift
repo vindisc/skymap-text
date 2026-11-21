@@ -286,31 +286,32 @@ struct ShellNav: View {
                 }
                 .accessibilityAction { model.scope = sidebarRow.id }
         case .section(let title, let indent):
-            ShellSectionHeader(title: title)
-                .padding(.leading, CGFloat(indent) * 16)
+            ShellSectionHeader(title: title, indent: indent)
         case .note(let note, let indent):
-            noteRow(note)
-                .padding(.leading, CGFloat(indent) * 16)
+            noteRow(note, indent: indent)
         case .hint(let text, let indent):
             let size = CGFloat(UserDefaultsManagement.dateFontSize)
             Text(text)
                 .font(ShellStyle.interface(size))
                 .kerning(ShellStyle.tracking(size))
                 .foregroundStyle(ShellStyle.tertiaryText)
-                .padding(.leading, CGFloat(indent) * 16 + 20)
+                // The hint's text lines up with the note titles' text, while
+                // its row spans the column like every other row.
+                .padding(.leading, 20 + CGFloat(indent) * 16)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func noteRow(_ note: Note) -> some View {
+    private func noteRow(_ note: Note, indent: Int) -> some View {
         let isSelected = model.isSelected(note)
         return ShellNoteRow(
             note: note,
             snippet: model.snippet(for: note),
             date: ShellModel.rowDate(for: note),
             isSelected: isSelected,
-            showsDivider: !isSelected
+            showsDivider: !isSelected,
+            indent: indent
         )
         .background {
             // File ▸ Export pops its menu at the open note's row.
@@ -624,12 +625,16 @@ private struct ShellScrollViewProbe: NSViewRepresentable {
 @available(macOS 14, *)
 private struct ShellSectionHeader: View {
     let title: String
+    /// How deep the headed notes sit under their folder; the heading's text
+    /// follows them while its row spans the column.
+    var indent: Int = 0
 
     var body: some View {
         let size = CGFloat(UserDefaultsManagement.dateFontSize)
         ShellBoldText(string: title, size: size)
             .foregroundStyle(ShellStyle.tertiaryText)
-            .padding(.horizontal, 20)
+            .padding(.leading, 20 + CGFloat(indent) * 16)
+            .padding(.trailing, 20)
             .padding(.top, 16)
             .padding(.bottom, 4)
     }
@@ -645,6 +650,10 @@ private struct ShellNoteRow: View {
     let date: String
     let isSelected: Bool
     let showsDivider: Bool
+    /// How deep the note sits under its folder. Only the text moves with it;
+    /// the plate and the divider span the row like the folder rows' do, so a
+    /// selected note's plate is as wide as a selected folder's.
+    var indent: Int = 0
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
@@ -690,15 +699,16 @@ private struct ShellNoteRow: View {
                 .foregroundStyle(ShellStyle.tertiaryText)
                 .lineLimit(1)
         }
-        .padding(.leading, 20)
+        .padding(.leading, 20 + CGFloat(indent) * 16)
         .padding(.trailing, 16)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             if isSelected {
+                // Full row width, as the folder rows' plates are; the text
+                // carries the indent, the plate does not.
                 RoundedRectangle(cornerRadius: Theme.Metrics.selectionCornerRadius, style: .continuous)
                     .fill(ShellStyle.selection)
-                    .padding(.horizontal, 8)
                     .padding(.vertical, 2)
             }
         }
@@ -854,12 +864,14 @@ private struct ShellDetailEmptyState: View {
     var body: some View {
         let size = CGFloat(UserDefaultsManagement.nameFontSize)
         VStack(spacing: 12) {
+            // The bird keeps its own ink, as the storyboard window's empty
+            // editor area showed it; a template drain turned it into a grey
+            // silhouette that read as a broken image.
             SwiftUI.Image(nsImage: NSImage(named: "emptyStateBird") ?? NSImage())
-                .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 76, height: 76)
-                .foregroundStyle(ShellStyle.tertiaryText)
+                .opacity(0.85)
             Text(I18n.str("Select a note, or press ⌘N to create one"))
                 .font(ShellStyle.interface(size))
                 .kerning(ShellStyle.tracking(size))
@@ -899,7 +911,9 @@ private struct ShellOutlineRow: View {
                 .help(entry.title)
         }
         .buttonStyle(.plain)
-        .padding(.leading, CGFloat(entry.level - 1) * 14 + 12)
+        // 4pt + the stack's 8pt keeps the headings where they were, and the
+        // plate spans the row like the navigation column's do.
+        .padding(.leading, CGFloat(entry.level - 1) * 14 + 4)
         .padding(.trailing, 10)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -908,7 +922,6 @@ private struct ShellOutlineRow: View {
             if isCurrent || isHovering {
                 RoundedRectangle(cornerRadius: Theme.Metrics.selectionCornerRadius, style: .continuous)
                     .fill(ShellStyle.sidebarSelection.opacity(isCurrent ? 1 : 0.5))
-                    .padding(.horizontal, 6)
             }
         }
         .onHover { isHovering = $0 }
@@ -959,6 +972,7 @@ struct ShellOutline: View {
                     }
                 }
                 .padding(.bottom, 10)
+                .padding(.horizontal, 8)
             }
             .scrollContentBackground(.hidden)
         }
