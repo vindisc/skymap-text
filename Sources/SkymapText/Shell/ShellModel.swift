@@ -633,6 +633,10 @@ final class ShellModel {
 
     /// Called once a preview has started loading its note.
     func previewDidLoad(_ view: MPreviewView) {
+        // The note switch that opened this page may have caught the content
+        // still loading (refreshOutline emptied the column on that guard);
+        // the content is on screen now, so re-derive the outline.
+        refreshOutline()
         if let line = previewLineBeforeReload {
             previewLineBeforeReload = nil
             if view === preview, editorMode == .preview {
