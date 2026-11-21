@@ -1198,10 +1198,12 @@ class EditTextView: NSTextView, @preconcurrency NSTextFinderClient {
         self.bottomPadding = bottomPadding
         textContainerInset.height += extraTopPadding + bottomPadding
 
-        if lineWidth == 1000 {
-            textContainerInset.width = CGFloat(margin)
-            return
-        }
+        // `lineWidth` is the measure itself — a centered column, the same
+        // geometry the preview's centered #write gives the rendered mode, so
+        // Command-E does not shift the text. A pane too narrow for it falls
+        // back to the side margins and uses the width it has. (The old
+        // `== 1000` full-width special case is gone: the default measure is
+        // 1000 and it centers like any other width.)
         guard Float(width) - Float(margin * 2) > Float(lineWidth) else {
             textContainerInset.width = CGFloat(margin)
             return
