@@ -197,17 +197,14 @@ struct ShellNav: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 1) {
-                        // 30pt of room above the lockup's ink and 30 under it to
-                        // All Notes, the storyboard sidebar's gaps (2x captures:
-                        // 26 and 25.5 before the drop and the gap; 3 and 9.5 since
-                        // the lockup went two points smaller, 2026-11-19).
-                        ShellSidebarBrand(title: model.brandTitle)
-                            .padding(.top, 3)
-                        SwiftUI.Color.clear.frame(height: 9.5)
+                        // The brand lockup went with the storyboard sidebar:
+                        // the app's identity lives in the Dock, and the column
+                        // reads calmer starting straight at the folders.
                         ForEach(model.navRows) { row in
                             navRow(row)
                         }
                     }
+                    .padding(.top, 6)
                     .padding(.horizontal, 8)
                     .padding(.bottom, 10)
                     .background(alignment: .topLeading) {
@@ -534,46 +531,6 @@ private struct ShellSidebarRow: View {
     }
 }
 
-/// The MiaoYan lockup over the sidebar rows, the storyboard sidebar's brand
-/// row: a mark, not a place, so it takes no clicks, plate or menu, and All
-/// Notes sits under it (maintainer, 2026-10-19).
-@available(macOS 14, *)
-private struct ShellSidebarBrand: View {
-    let title: String
-
-    var body: some View {
-        let isLatin = title.unicodeScalars.allSatisfy(\.isASCII)
-        let size = CGFloat(UserDefaultsManagement.nameFontSize) + (isLatin ? 0 : 2)
-        // The bird, wordmark size and 6pt spacing follow the storyboard
-        // sidebar's lockup, made larger on 2026-11-18 and two points smaller
-        // again on 2026-11-19 (`configureForSidebarItemType`).
-        // Centred on the bird, the name's ink sat 0.5pt above the bird's in
-        // both languages; the offsets put it where the storyboard's sits,
-        // 1.5pt under for 妙言 and 1.75 for MiaoYan (2x captures).
-        HStack(spacing: 6) {
-            SwiftUI.Image(nsImage: NSImage(named: "home") ?? NSImage())
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 24, height: 24)
-            Text(title)
-                .font(ShellStyle.brandWordmark(title, size: size))
-                .kerning(Theme.brandWordmarkTrackingEm(for: title).map { $0 * size } ?? 0)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .offset(y: 2)
-        }
-        // Both names sit at the leading edge, as in the storyboard sidebar.
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .foregroundStyle(ShellStyle.accent)
-        .padding(.leading, 8)
-        .padding(.trailing, 8)
-        .frame(height: 36)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-}
-
 /// Top-level folder rows can be dragged to reorder the sidebar, as in the
 /// storyboard sidebar; subfolders, All Notes and the Trash stay put.
 @available(macOS 14, *)
@@ -892,45 +849,21 @@ struct ShellOutline: View {
     @Bindable var model: ShellModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 2) {
-                // A quiet caption, not a heading: the outline serves the
-                // note in the middle and must not fight it for attention.
-                let size = CGFloat(UserDefaultsManagement.dateFontSize)
-                Text(I18n.str("Outline"))
-                    .font(ShellStyle.interface(size))
-                    .kerning(ShellStyle.tracking(size))
-                    .foregroundStyle(ShellStyle.secondaryText)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                ChromeButton(symbol: "xmark", help: "Toggle Outline") { model.toggleOutline() }
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, 10)
-            .frame(height: ShellStyle.headerHeight)
-            .background(ShellTitleBarArea())
-            .background(ShellStyle.background)
-            .zIndex(1)
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if model.outline.isEmpty {
-                        Text(I18n.str("No Headings"))
-                            .font(ShellStyle.interface(CGFloat(UserDefaultsManagement.dateFontSize)))
-                            .foregroundStyle(ShellStyle.tertiaryText)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 16)
-                    } else {
-                        ForEach(model.outline) { entry in
-                            ShellOutlineRow(model: model, entry: entry)
-                        }
-                    }
+        // Headerless: the caption and its close button were a second chrome
+        // cluster on the title band. The pane's toggle lives in the detail
+        // header (and Command-5), the headings speak for themselves, and a
+        // note without headings shows nothing instead of explaining itself.
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(model.outline) { entry in
+                    ShellOutlineRow(model: model, entry: entry)
                 }
-                .padding(.bottom, 10)
-                .padding(.horizontal, 8)
             }
-            .scrollContentBackground(.hidden)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+            .padding(.horizontal, 8)
         }
+        .scrollContentBackground(.hidden)
         .background(ShellStyle.background.ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
         .onAppear { model.refreshOutline() }
