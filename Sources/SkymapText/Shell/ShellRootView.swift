@@ -123,7 +123,9 @@ private struct ChromeButton: View {
 
     @ViewBuilder private var glyph: some View {
         if let symbol {
-            SwiftUI.Image(systemName: symbol).font(.system(size: 14, weight: .regular))
+            // SF Symbols at the image glyphs' optical size keeps the header
+            // row's weights even.
+            SwiftUI.Image(systemName: symbol).font(.system(size: 15, weight: .regular))
         } else {
             SwiftUI.Image(nsImage: NSImage(named: image ?? "") ?? NSImage())
                 .renderingMode(.template)
@@ -277,11 +279,12 @@ struct ShellNav: View {
                     navFocused = true
                 }
                 .accessibilityAction { model.scope = sidebarRow.id }
-        case .section(let title):
+        case .section(let title, let indent):
             ShellSectionHeader(title: title)
+                .padding(.leading, CGFloat(indent) * 16)
         case .note(let note, let indent):
             noteRow(note)
-                .padding(.leading, CGFloat(indent) * 14)
+                .padding(.leading, CGFloat(indent) * 16)
         }
     }
 
@@ -862,11 +865,10 @@ struct ShellOutline: View {
                             Button {
                                 model.outlineJump(entry)
                             } label: {
+                                let size = CGFloat(UserDefaultsManagement.nameFontSize - 1)
                                 Text(entry.title)
-                                    .font(
-                                        ShellStyle.interface(
-                                            CGFloat(UserDefaultsManagement.nameFontSize - 1),
-                                            weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
+                                    .font(ShellStyle.interface(size, weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
+                                    .kerning(ShellStyle.tracking(size))
                                     .foregroundStyle(entry.level <= 2 ? ShellStyle.text : ShellStyle.secondaryText)
                                     .lineLimit(1)
                                     .truncationMode(.tail)

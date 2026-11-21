@@ -163,7 +163,7 @@ final class ShellModel {
     struct NavRow: Identifiable {
         enum Kind {
             case folder(SidebarRow, isScope: Bool)
-            case section(String)
+            case section(String, indent: Int)
             case note(Note, indent: Int)
         }
 
@@ -1705,9 +1705,11 @@ final class ShellModel {
                     rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
                 }
             } else {
-                for section in sections {
+                // Section ids repeat across years ("month-11" twice), so the
+                // row id keys on the position instead of the id or title.
+                for (index, section) in sections.enumerated() {
                     if let title = section.title {
-                        rows.append(NavRow(id: "section:" + title, kind: .section(title)))
+                        rows.append(NavRow(id: "section:\(scope.storedValue):\(index)", kind: .section(title, indent: indent)))
                     }
                     for note in section.notes {
                         rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
