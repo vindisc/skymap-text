@@ -803,6 +803,9 @@ private struct ShellOutlineRow: View {
         Button {
             model.outlineJump(entry)
         } label: {
+            // The paddings, the full-width frame and the content shape live
+            // inside the label: a plain button only gestures on its label,
+            // so leaving them outside left just the text itself clickable.
             Text(entry.title)
                 .font(ShellStyle.interface(size, weight: entry.level <= 2 ? ShellStyle.titleWeight : .regular))
                 .kerning(ShellStyle.tracking(size))
@@ -811,15 +814,15 @@ private struct ShellOutlineRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(entry.title)
+                .padding(.leading, CGFloat(entry.level - 1) * 14 + 4)
+                .padding(.trailing, 10)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         // 4pt + the stack's 8pt keeps the headings where they were, and the
         // plate spans the row like the navigation column's do.
-        .padding(.leading, CGFloat(entry.level - 1) * 14 + 4)
-        .padding(.trailing, 10)
-        .padding(.vertical, 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
         .background {
             if isCurrent || isHovering {
                 RoundedRectangle(cornerRadius: Theme.Metrics.selectionCornerRadius, style: .continuous)
