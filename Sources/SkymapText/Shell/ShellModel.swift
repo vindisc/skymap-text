@@ -625,9 +625,13 @@ final class ShellModel {
             let place = wasPreview ? editorPlaceBeforePreview : nil
             editorPlaceBeforePreview = nil
             pendingPreviewEntry = nil
+            // A queued preview scroll must not reach the outline now that the
+            // editor is coming back; the editor's own scrolls take over.
+            if wasPreview { preview?.scrollDelegate = nil }
             editorAppearAction = { [weak self] in self?.restoreEditor(place, restoreCursor: wasPreview) }
         }
         editorMode = mode
+        refreshOutline()
     }
 
     private func restoreEditor(_ place: EditorPlace?, restoreCursor: Bool) {
@@ -666,7 +670,17 @@ final class ShellModel {
             if scrolls, let line = entry.line {
                 view.scrollToLine(line, fallbackRatio: entry.ratio)
             }
-            view.window?.makeFirstResponder(view)
+            // The cached-view path fires during makeNSView, before SwiftUI
+            // attaches the view to a window; a first responder request made
+            // then no-ops. Retry once the view is attached.
+            func takeKeys(attempt: Int) {
+                if view.window != nil {
+                    view.window?.makeFirstResponder(view)
+                } else if attempt < 5 {
+                    DispatchQueue.main.async { takeKeys(attempt: attempt + 1) }
+                }
+            }
+            takeKeys(attempt: 0)
         }
     }
 
@@ -902,6 +916,10 @@ final class ShellModel {
     func createNote(name: String = "", content: String = "") {
         if isPresenting, !name.isEmpty || !content.isEmpty { setPresenting(false) }
         guard !isPresenting, let project = targetProject else { return }
+        // A title being typed is committed first: the selection change below
+        // would otherwise drop the draft (the storyboard window's
+        // saveTitleSafely does the same before its new note).
+        commitPendingRename()
         let note = Note(name: name, project: project)
         note.content = NSMutableAttributedString(string: content)
         note.save()
@@ -984,6 +1002,9 @@ final class ShellModel {
     func deleteSelectedNote() {
         // The note being exported stays until its file is written.
         guard !isPresenting, !isExporting, let note = selectedNote else { return }
+        // A title being typed commits first, or the rename lands on a note
+        // that is about to leave the list.
+        commitPendingRename()
         let removing = selectedNotes
         guard note.isTrash() else {
             remove(removing.filter { !$0.isTrash() }, undoable: true)
@@ -1846,7 +1867,9 @@ final class ShellModel {
     /// The rendered mode's scroll reports here (the preview's delegate), the
     /// same conversion the split sync uses back into buffer lines.
     func previewDidScroll(line: CGFloat) {
-        guard isOutlineVisible, !outline.isEmpty else { return }
+        // A queued scroll from the hidden cached view must not rewrite the
+        // highlight once the editor is back.
+        guard editorMode == .preview, isOutlineVisible, !outline.isEmpty else { return }
         let frontmatterLines = editor.textView.storageNote === selectedNote ? editor.frontmatterLines : 0
         let (bufferLine, _) = ShellSplitMath.bufferLine(forPreviewLine: line, frontmatterLines: frontmatterLines)
         updateOutlineSelection(topBufferLine: bufferLine)

@@ -49,6 +49,16 @@ class MPreviewView: WKWebView, WKUIDelegate {
     /// (font, size, width) gives a different one, and the page is loaded
     /// again rather than reused.
     private var pageStyle: String?
+    /// Whether the page on screen can take `note` in place as an ordinary
+    /// preview: the cached view is only reused when its template is loaded,
+    /// it is not the slide deck, and it was built with the current preview
+    /// style (a settings change needs a full reload).
+    func isReusableFor(note: Note, currentStyle: String) -> Bool {
+        note.url == displayedNote?.url
+            && hasLoadedTemplate
+            && !pageIsSlides
+            && pageStyle == currentStyle
+    }
     /// The theme the page on screen is in: the one its template was built
     /// with, then whatever `updateAppearance` last switched it to.
     private var pageIsDark: Bool?

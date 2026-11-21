@@ -867,6 +867,11 @@ struct ShellOutline: View {
         .background(ShellStyle.background.ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
         .onAppear { model.refreshOutline() }
+        // Switching notes in the rendered mode never touches the editor
+        // buffer, so the outline has to follow the selection itself.
+        .onChange(of: model.selectedNoteURL) { _, _ in
+            model.refreshOutline()
+        }
     }
 }
 
@@ -1110,11 +1115,16 @@ struct ShellPreview: NSViewRepresentable {
         let view = model.reusablePreview() ?? MPreviewView(frame: .zero, note: note, closure: nil)
         model.stashPreview(view)
         onMake?(view)
-        if view.displayedNote?.url == note.url, view.hasLoadedTemplate {
-            // The cached page already holds this note: skip the reload and
-            // let the entry scroll put the reading place where editing was.
+        // The reuse gate is strict: same note, template loaded, not the slide
+        // deck, built with the current preview style. Anything else reloads.
+        if view.isReusableFor(note: note, currentStyle: HtmlManager.previewStyle()) {
+            // The cached page holds this note, but edits made while the
+            // editor was showing are not in its DOM yet. Sentinel the
+            // revision so the first update patches in place (keeping the
+            // scroll), and let the entry scroll put the reading place where
+            // editing was.
             context.coordinator.loadedURL = note.url
-            context.coordinator.revision = revision
+            context.coordinator.revision = -1
             context.coordinator.styleRevision = styleRevision
             onLoad?(view)
         } else {
