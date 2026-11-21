@@ -1050,8 +1050,13 @@ const TOC_CONFIG = {
     refreshTOC();
   }
 
-  // Wait for tocbot to be available and render TOC
+  // Wait for tocbot to be available and render TOC.
+  // Branch `spm`: the app has a native outline column (Command-5) answering
+  // the same question, so the page's hover TOC is retired — the two read as
+  // a bug. Flip to false to bring it back.
+  const TOC_RETIRED = true;
   MiaoYanCommon.onDOMReady(() => {
+    if (TOC_RETIRED) return;
     setTimeout(() => {
       if (window.tocbot && document.querySelector('.toc-nav')) {
         initTOC();
