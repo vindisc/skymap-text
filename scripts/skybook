@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# miaoyan - CLI for MiaoYan Markdown Editor
-# https://github.com/tw93/MiaoYan
+# skybook - CLI for SkyBook (the Skymap-Text fork of MiaoYan)
+# https://github.com/vindisc/skymap-text
 #
 
 set -e
@@ -11,19 +11,22 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
 show_banner() {
-    printf "${GREEN} __  __ _${NC}\n"
-    printf "${GREEN}|  \\/  (_) __ _  ___${NC}\n"
-    printf "${GREEN}| |\\/| | |/ _\` |/ _ \\\\${NC}\n"
-    printf "${GREEN}| |  | | | (_| | (_) |${NC}  ${BLUE}%s${NC}\n" "https://github.com/tw93/MiaoYan"
-    printf "${GREEN}|_|  |_|_|\\__,_|\\___/${NC}   ${GREEN}%s${NC}\n" "Lightweight Markdown app for macOS"
+    printf "${GREEN} _____ _          _  ____  ${NC}\n"
+    printf "${GREEN}|_   _| | ___   _| |/ ___| ${NC}  ${BLUE}%s${NC}\n" "https://github.com/vindisc/skymap-text"
+    printf "${GREEN}  | | | |/\\ \\ / / | |\\___ \\ ${NC}  ${GREEN}%s${NC}\n" "Markdown notes for macOS"
+    printf "${GREEN}  | | | |  \\ V /| | |___) |${NC}\n"
+    printf "${GREEN}  |_| |_|   \\_/ |_|_____/ ${NC}\n"
 }
 
 cmd_help() {
     show_banner
     echo
     printf "${BLUE}USAGE${NC}\n"
-    printf "  miao <command> [options]\n"
+    printf "  skybook <command> [options]\n"
     echo
     printf "${BLUE}COMMANDS${NC}\n"
     printf "  ${GREEN}%-24s${NC} %s\n" "list [folder]" "List top-level folders, or markdown in folder"
@@ -31,7 +34,6 @@ cmd_help() {
     printf "  ${GREEN}%-24s${NC} %s\n" "open <title|path>" "Open note or folder"
     printf "  ${GREEN}%-24s${NC} %s\n" "cat <title|path>" "Print note content"
     printf "  ${GREEN}%-24s${NC} %s\n" "new <title> [text]" "Create new note"
-    printf "  ${GREEN}%-24s${NC} %s\n" "update" "Update to latest version"
     printf "  ${GREEN}%-24s${NC} %s\n" "help" "Show this help"
     echo
 }
@@ -41,7 +43,7 @@ case "${1:-help}" in
     help|--help|-h) cmd_help; exit 0 ;;
 esac
 
-# Auto-detect notes path from app preferences, fallback to common locations
+# Auto-detect notes path from app preferences
 normalize_path() {
     local path="$1"
 
@@ -80,36 +82,24 @@ read_pref_path() {
 }
 
 detect_path() {
-    local pref_path domain
+    local pref_path
 
-    # The folder chosen in Settings. `defaults read com.tw93.miaoyan` reads the
-    # sandbox container's copy whenever one exists, so both plists are read by
-    # path: the direct-download app's first, then the App Store app's.
-    for domain in \
-        "$HOME/Library/Preferences/com.tw93.miaoyan" \
-        "$HOME/Library/Containers/com.tw93.miaoyan/Data/Library/Preferences/com.tw93.miaoyan"; do
-        pref_path=$(read_pref_path "$domain" "storageUrl")
-        if [[ -n "$pref_path" ]]; then
-            echo "$pref_path"
-            return
-        fi
-    done
-
-    # With no folder chosen the app uses its iCloud Drive folder, then
-    # Documents/MiaoYan, and never writes storageUrl.
-    for p in "$HOME/Library/Mobile Documents/iCloud~com~tw93~miaoyan/Documents" \
-        "$HOME/Documents/MiaoYan" "$HOME/Save/MiaoYan" "$HOME/MiaoYan"; do
-        [[ -d "$p" ]] && echo "$p" && return
-    done
+    # The folder chosen in SkyBook's settings: the SwiftPM build keeps its
+    # defaults in the bare local.skybook domain (no sandbox container).
+    pref_path=$(read_pref_path "$HOME/Library/Preferences/local.skybook" "storageUrl")
+    if [[ -n "$pref_path" ]]; then
+        echo "$pref_path"
+        return
+    fi
 
     echo ""
 }
 
-NOTES_PATH="${MIAOYAN_PATH:-$(detect_path)}"
+NOTES_PATH="${SKYBOOK_PATH:-$(detect_path)}"
 
 if [[ -z "$NOTES_PATH" || ! -d "$NOTES_PATH" ]]; then
     echo "Error: Notes directory not found." >&2
-    echo "Set MIAOYAN_PATH or configure in MiaoYan preferences." >&2
+    echo "Set SKYBOOK_PATH or choose the library folder in SkyBook's settings." >&2
     exit 1
 fi
 
@@ -118,6 +108,18 @@ urlencode() {
     # The text goes in as an argument, never into the Python source, so quotes,
     # backslashes and triple quotes in a title are just characters.
     python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+}
+
+# The app: an installed SkyBook first, then the repo's fresh build, so a
+# developer's `skybook open` does not raise the wrong (or no) app.
+open_target() {
+    local target="$1"
+    open -a SkyBook "$target" 2>/dev/null \
+        || open -a "$REPO_ROOT/.build/SkyBook.app" "$target" 2>/dev/null \
+        || {
+            echo "Error: SkyBook.app not found. Install it or run scripts/make_app.sh." >&2
+            exit 1
+        }
 }
 
 # Find note file by title (searches recursively, excludes Trash)
@@ -204,7 +206,7 @@ cmd_list() {
     local search_path="$NOTES_PATH"
     local rel_path
     local has_root_notes=0
-    
+
     if [[ -n "$folder" ]]; then
         search_path="$NOTES_PATH/${folder%/}"
         if [[ ! -d "$search_path" ]]; then
@@ -220,7 +222,7 @@ cmd_list() {
         done | sort
         return
     fi
-    
+
     find "$search_path" -mindepth 1 -maxdepth 1 -type d -not -name "Trash" -not -name ".*" | while read -r d; do
         # Only show top-level folders that actually contain markdown notes.
         if find "$d" -type f -name "*.md" -not -path "*/Trash/*" -print -quit | grep -q .; then
@@ -233,14 +235,14 @@ cmd_list() {
     fi
 
     if [[ "$has_root_notes" -eq 1 ]]; then
-        echo "Tip: root notes are hidden in default list. Run 'miao list .' to show them." >&2
+        echo "Tip: root notes are hidden in default list. Run 'skybook list .' to show them." >&2
     fi
 }
 
 cmd_search() {
     local query="$1"
     local tmp_file
-    [[ -z "$query" ]] && echo "Usage: miaoyan search <query>" >&2 && exit 1
+    [[ -z "$query" ]] && echo "Usage: skybook search <query>" >&2 && exit 1
 
     tmp_file=$(mktemp)
 
@@ -266,25 +268,25 @@ cmd_search() {
 cmd_open() {
     local arg="$1"
     local file
-    [[ -z "$arg" ]] && echo "Usage: miaoyan open <title|path>" >&2 && exit 1
+    [[ -z "$arg" ]] && echo "Usage: skybook open <title|path>" >&2 && exit 1
 
     # Prefer opening a resolved file or folder path to enter single mode
     file=$(resolve_open_path "$arg")
     if [[ -n "$file" ]]; then
-        open -a MiaoYan "$file"
+        open_target "$file"
         return
     fi
 
     # Fallback to title route (strip optional .md suffix)
-    open "miaoyan://goto/$(urlencode "${arg%.md}")"
+    open "skybook://goto/$(urlencode "${arg%.md}")"
 }
 
 cmd_new() {
     local title="$1"
     local text="${2:-}"
-    [[ -z "$title" ]] && echo "Usage: miaoyan new <title> [text]" >&2 && exit 1
-    
-    local url="miaoyan://new/?title=$(urlencode "$title")"
+    [[ -z "$title" ]] && echo "Usage: skybook new <title> [text]" >&2 && exit 1
+
+    local url="skybook://new/?title=$(urlencode "$title")"
     [[ -n "$text" ]] && url="$url&txt=$(urlencode "$text")"
     open "$url"
 }
@@ -292,7 +294,7 @@ cmd_new() {
 cmd_cat() {
     local arg="$1"
     local file
-    [[ -z "$arg" ]] && echo "Usage: miaoyan cat <title|path>" >&2 && exit 1
+    [[ -z "$arg" ]] && echo "Usage: skybook cat <title|path>" >&2 && exit 1
 
     file=$(resolve_note_path "$arg")
 
@@ -304,48 +306,6 @@ cmd_cat() {
     cat "$file"
 }
 
-cmd_update() {
-    local script_path
-    script_path="$(command -v miao 2>/dev/null || echo "$0")"
-    local tmp_file
-    tmp_file=$(mktemp)
-
-    printf "${GREEN}▸${NC} Checking for updates...\n"
-
-    # The latest release, so a bad push to main cannot break an update. The
-    # releases/latest page redirects to the tag and, unlike the API, has no
-    # hourly rate limit. A failed lookup stops here rather than quietly taking
-    # main. MIAOYAN_INSTALL_REF overrides it.
-    local ref="${MIAOYAN_INSTALL_REF:-}"
-    if [[ -z "$ref" ]]; then
-        local latest_url
-        latest_url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/tw93/MiaoYan/releases/latest" 2>/dev/null || true)
-        [[ "$latest_url" == */releases/tag/* ]] && ref="${latest_url##*/releases/tag/}"
-        if [[ -z "$ref" ]]; then
-            rm -f "$tmp_file"
-            echo "Error: Could not find the latest MiaoYan release on GitHub. Check your network and try again." >&2
-            exit 1
-        fi
-    fi
-
-    if ! curl -fsSL "https://raw.githubusercontent.com/tw93/MiaoYan/${ref}/scripts/miaoyan" -o "$tmp_file" 2>/dev/null; then
-        rm -f "$tmp_file"
-        echo "Error: Failed to download miao from release ${ref}." >&2
-        exit 1
-    fi
-
-    chmod +x "$tmp_file"
-    mv "$tmp_file" "$script_path" 2>/dev/null || {
-        sudo mv "$tmp_file" "$script_path" || {
-            rm -f "$tmp_file"
-            echo "Error: Failed to install update." >&2
-            exit 1
-        }
-    }
-
-    printf "${GREEN}▸${NC} Updated successfully!\n"
-}
-
 # Main
 case "$1" in
     list)    cmd_list "$2" ;;
@@ -353,10 +313,9 @@ case "$1" in
     open)    cmd_open "$2" ;;
     new)     cmd_new "$2" "$3" ;;
     cat)     cmd_cat "$2" ;;
-    update)  cmd_update ;;
     *)
         echo "Unknown command: $1" >&2
-        echo "Run 'miaoyan help' for usage." >&2
+        echo "Run 'skybook help' for usage." >&2
         exit 1
         ;;
 esac
