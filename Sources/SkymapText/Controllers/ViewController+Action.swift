@@ -1109,13 +1109,15 @@ extension ViewController {
     }
 
     // MARK: - File Operations
-    public func copy(project: Project, url: URL) -> URL {
+    public func copy(project: Project, url: URL) -> URL? {
         Self.copyFile(url, into: project)
     }
 
     /// Copies an imported file into `project`, naming it "Copy", "Copy 2"
     /// and so on when the name is taken. Shared with the SwiftUI shell.
-    static func copyFile(_ url: URL, into project: Project) -> URL {
+    /// Returns nil when neither name could be written: the caller must not
+    /// list a note for a file that does not exist.
+    static func copyFile(_ url: URL, into project: Project) -> URL? {
         let fileName = url.lastPathComponent
 
         do {
@@ -1136,9 +1138,13 @@ extension ViewController {
             }
 
             let baseUrl = project.url.appendingPathComponent(copyName).appendingPathExtension(ext)
-            try? FileManager.default.copyItem(at: url, to: baseUrl)
-
-            return baseUrl
+            do {
+                try FileManager.default.copyItem(at: url, to: baseUrl)
+                return baseUrl
+            } catch {
+                AppDelegate.trackError(error, context: "ViewController.copyFile")
+                return nil
+            }
         }
     }
 

@@ -106,7 +106,10 @@ extension AppDelegate {
                 }
             } else {
                 let project = Storage.sharedInstance().getMainProject()
-                let newUrl = vc.copy(project: project, url: url)
+                guard let newUrl = vc.copy(project: project, url: url) else {
+                    vc.toast(message: I18n.str("Couldn't import the file"), style: .failure)
+                    continue
+                }
                 UserDataService.instance.focusOnImport = newUrl
                 UserDataService.instance.skipSidebarSelection = true
             }

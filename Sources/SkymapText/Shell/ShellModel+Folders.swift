@@ -143,7 +143,12 @@ extension ShellModel {
             for: window
         ) { [weak self] confirmed in
             guard confirmed, let self, let trashURL = self.storage.systemTrashDestination(for: project.url) else { return }
-            self.storage.flushPendingSaves(inside: project)
+            // A failed flush means the folder still holds the only copy of an
+            // edit; moving it to the Trash would leave that copy stale.
+            guard self.storage.flushPendingSaves(inside: project) else {
+                self.host?.toast(message: I18n.str("Couldn't save the folder's notes, so it was not deleted"), style: .failure)
+                return
+            }
             do {
                 try FileManager.default.moveItem(at: project.url, to: trashURL)
             } catch {

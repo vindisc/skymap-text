@@ -207,6 +207,9 @@ class Storage {
                     continue
                 }
                 let project = Project(url: subUrl, label: subUrl.lastPathComponent, parent: parent)
+                // Project resolves its own URL; a symlinked sibling must not
+                // add a second entry for the folder it points at.
+                guard !projects.contains(where: { $0.url == project.url }) else { continue }
                 projects.append(project)
                 added.append(project)
             }
@@ -259,7 +262,13 @@ class Storage {
     }
 
     func projectExist(url: URL) -> Bool {
-        projects.contains(where: { $0.url == url })
+        // Directory symlinks are enumerated as folders; comparing the raw
+        // path let `link -> real` register a second project for the same
+        // files, and every reload then loaded every note twice.
+        let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+        return projects.contains { candidate in
+            candidate.url == url || candidate.url.resolvingSymlinksInPath().standardizedFileURL == resolved
+        }
     }
 
     /// After a folder moved on disk to `newURL`: rewrites the folder, every
@@ -459,10 +468,14 @@ class Storage {
     /// under it. Deleting a folder calls this before moving it to the Trash:
     /// flushed afterwards by `removeBy(project:)`, the save found its file
     /// gone, so an edit typed in the last 1.5s never reached the Trash copy.
-    public func flushPendingSaves(inside project: Project) {
+    /// False when any note failed: the caller must not delete then.
+    @discardableResult
+    public func flushPendingSaves(inside project: Project) -> Bool {
+        var allSucceeded = true
         for note in tree(of: project).notes where note.needsSave {
-            _ = note.flushPendingSave(globalStorage: false)
+            if !note.flushPendingSave(globalStorage: false) { allSucceeded = false }
         }
+        return allSucceeded
     }
 
     /// Drops a folder and every registered folder under it, with their notes.

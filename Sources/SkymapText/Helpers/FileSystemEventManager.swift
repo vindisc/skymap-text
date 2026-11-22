@@ -375,6 +375,12 @@ class FileSystemEventManager {
         }
 
         note.content = NSMutableAttributedString(attributedString: fsContent)
+        // This path replaces the body without a read, so the backlinks the
+        // index holds for this title would otherwise stay at the old text
+        // until the note is saved or the app restarts.
+        if !note.isTrash(), !note.project.isExternal {
+            WikilinkIndex.shared.updateNote(title: note.title, content: note.content.string)
+        }
         // The text just read is the file's: without the date, the refill
         // below took the note for stale, read it again after an await and
         // applied it after the editor's place had been put back.
