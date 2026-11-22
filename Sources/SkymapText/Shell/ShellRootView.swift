@@ -827,7 +827,8 @@ private struct ShellOutlineRow: View {
                 .help(entry.title)
                 .padding(.leading, CGFloat(entry.level - 1) * 14 + 4)
                 .padding(.trailing, 10)
-                .padding(.vertical, 5)
+                // 7pt gives the rows the nav column's rhythm; 5 read cramped.
+                .padding(.vertical, 7)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
         }

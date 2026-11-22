@@ -242,6 +242,7 @@ enum AppAudit {
         ("trash.deleteMovesTheNoteIntoTheTrashScope", deleteMovesTheNoteIntoTheTrashScope),
         ("trash.undoAfterDeleteRestoresTheNote", undoAfterDeleteRestoresTheNote),
         ("persistence.scopeLayoutAndOutlineVisibility", scopeLayoutAndOutlineVisibilityPersistAcrossReinit),
+        ("outline.contentWidthStaysWithinBounds", outlineContentWidthStaysWithinBounds),
         ("debug.alertSheetGeometry", alertSheetGeometry),
     ]
     print("SkyBook audit: \(tests.count) scenarios")

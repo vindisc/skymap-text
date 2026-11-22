@@ -1251,8 +1251,8 @@ final class ShellSplitViewController: NSSplitViewController {
         detail.holdingPriority = NSLayoutConstraint.Priority(250)
 
         let outline = NSSplitViewItem(viewController: Self.host(ShellOutline(model: model)))
-        outline.minimumThickness = 160
-        outline.maximumThickness = 240
+        outline.minimumThickness = ShellModel.outlineMinWidth
+        outline.maximumThickness = ShellModel.outlineMaxWidth
         outline.canCollapse = true
         outline.holdingPriority = NSLayoutConstraint.Priority(240)
 
@@ -1267,6 +1267,7 @@ final class ShellSplitViewController: NSSplitViewController {
         ExportHosts.shell = self
         observeLayout()
         observeOutlineVisibility()
+        observeOutlineWidth()
         observeDividerDrags()
     }
 
@@ -1332,15 +1333,53 @@ final class ShellSplitViewController: NSSplitViewController {
             }
         } completionHandler: { [weak self] in
             Task { @MainActor in
-                // A fresh expand out of the collapsed state lands at the
-                // minimum thickness; give it its comfortable width once.
-                if visible, let self, let item = self.splitViewItems.last,
-                    item.viewController.view.frame.width < 160
-                {
-                    self.splitView.setPosition(self.splitView.bounds.width - 200, ofDividerAt: 1)
+                // A fresh expand lands at the minimum thickness; the fitted
+                // content width takes it from there. syncOutlineWidth owns
+                // the layout flag.
+                if visible, let self {
+                    self.syncOutlineWidth(hysteresis: 1)
+                } else if let self {
+                    self.isApplyingLayout = false
                 }
-                self?.isApplyingLayout = false
             }
+        }
+    }
+
+    /// Fits the outline pane to its widest heading when the heading set
+    /// changes. The 24pt hysteresis (the expand pass tightens it to 1pt)
+    /// keeps a heading being typed from walking the divider — only a
+    /// decisively wider or narrower set of headings moves the column.
+    private func observeOutlineWidth() {
+        let (entries, visible, hasNote) = withObservationTracking {
+            (model.outline, model.isOutlineVisible, model.selectedNoteURL != nil)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeOutlineWidth() }
+        }
+        guard visible, hasNote, entries != fittedOutline else { return }
+        fittedOutline = entries
+        syncOutlineWidth(hysteresis: 24)
+    }
+
+    private var fittedOutline: [ShellModel.OutlineEntry] = []
+
+    private func syncOutlineWidth(hysteresis: CGFloat) {
+        let items = splitViewItems
+        let width = model.outlineContentWidth
+        let needsMove = items.count == 3 && !items[2].isCollapsed
+            && abs(items[2].viewController.view.frame.width - width) >= hysteresis
+        isApplyingLayout = true
+        guard needsMove else {
+            isApplyingLayout = false
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Theme.Motion.change
+            context.timingFunction = Theme.Motion.curve
+            context.allowsImplicitAnimation = true
+            self.splitView.setPosition(self.splitView.bounds.width - width, ofDividerAt: 1)
+            self.splitView.layoutSubtreeIfNeeded()
+        } completionHandler: { [weak self] in
+            Task { @MainActor in self?.isApplyingLayout = false }
         }
     }
 

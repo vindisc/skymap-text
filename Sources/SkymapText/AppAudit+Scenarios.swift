@@ -302,3 +302,24 @@ func scopeLayoutAndOutlineVisibilityPersistAcrossReinit(_ ctx: AuditContext) asy
     try expect(reborn.editorMode == model.editorMode, "editor mode restores")
     _ = layoutWasNoteOnly
 }
+
+/// The outline pane's width follows the widest heading: short headings sit
+/// at the floor, a long one clamps at the cap.
+@MainActor
+func outlineContentWidthStaysWithinBounds(_ ctx: AuditContext) async throws {
+    let short = await ctx.makeLoadedNote("outline-width-short", headings: ["A"])
+    let model = ctx.model
+    model.isOutlineVisible = true
+    model.selectedNoteURL = short.url
+    model.refreshOutline()
+    try expect(model.outline.map(\.title) == ["A"], "the short note's outline renders")
+    let narrow = model.outlineContentWidth
+    try expect(narrow == ShellModel.outlineMinWidth, "a short outline sits at the floor")
+    let long = await ctx.makeLoadedNote("outline-width-long", headings: [String(repeating: "长标题一字", count: 20)])
+    model.selectedNoteURL = long.url
+    model.refreshOutline()
+    try expect(!model.outline.isEmpty, "the long note's outline renders")
+    let wide = model.outlineContentWidth
+    try expect(wide == ShellModel.outlineMaxWidth, "a long outline clamps at the cap")
+    try expect(wide > narrow, "the width follows the content")
+}

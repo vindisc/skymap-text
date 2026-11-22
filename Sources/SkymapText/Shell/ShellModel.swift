@@ -169,6 +169,25 @@ final class ShellModel {
         var id: Int { bufferLine }
     }
     private(set) var outline: [OutlineEntry] = []
+    /// The pane width that fits the widest heading: each row's indent plus
+    /// its measured title (the face, size and tracking the rows render with)
+    /// plus the paddings, clamped between the floor and the cap. The column
+    /// follows the note's headings instead of one fixed width, but a long
+    /// heading cannot grow it past the cap.
+    static let outlineMinWidth: CGFloat = 160
+    static let outlineMaxWidth: CGFloat = 280
+    var outlineContentWidth: CGFloat {
+        let size = CGFloat(UserDefaultsManagement.nameFontSize - 1)
+        var widest: CGFloat = 0
+        for entry in outline {
+            let font = FontConfiguration.interfaceFont(size: size)
+            let text = (entry.title as NSString).size(
+                withAttributes: [.font: font, .kern: ShellStyle.tracking(size)])
+            widest = max(widest, CGFloat(entry.level - 1) * 14 + 4 + text.width + 10)
+        }
+        // The 2pt slack covers the medium-weight titles' extra spread.
+        return min(max(widest + 18, Self.outlineMinWidth), Self.outlineMaxWidth)
+    }
     /// The buffer line of the heading currently in view; the outline column
     /// highlights it. Follows editor scrolls and, in the rendered mode,
     /// preview scrolls.
