@@ -1551,11 +1551,21 @@ final class ShellModel {
 
     // MARK: - Search field keys
 
-    /// Return in the search field opens the note in the editor when its
-    /// title starts with the query (SearchTextField's insertNewline).
+    /// Return in the search field commits the search: the picked result —
+    /// or the first one when nothing is picked — opens in the editor and the
+    /// search closes, as openByTitle does. Requiring the title to start with
+    /// the query stranded every body match and mid-title match on a dead key
+    /// (audit 2026-11-22).
     func searchFieldReturn() {
-        let query = searchText.lowercased()
-        guard !query.isEmpty, let note = selectedNote, note.title.lowercased().starts(with: query) else { return }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        if selectedNoteURL == nil || !notes.contains(where: { $0.url == selectedNoteURL }) {
+            selectedNoteURL = notes.first?.url
+        }
+        guard selectedNote != nil else { return }
+        searchText = ""
+        isSearchOpen = false
+        refreshNow(selecting: selectedNoteURL)
         focusEditor()
     }
 

@@ -95,12 +95,18 @@ final class EditorPrefsViewController: BasePrefsViewController {
         guard let service = sender.selectedItem?.representedObject as? String else { return }
         UserDefaultsManagement.defaultPicUpload = service
         guard service != "None" else { return }
+        let hint = String(format: I18n.str("Install and set up %@ first"), service)
         if let vc = ViewController.shared() {
             vc.toastImageSet(name: service)
         } else if #available(macOS 14, *),
-            let shell = (NSApp.delegate as? AppDelegate)?.shellWindowController as? ShellWindowController
+            let shell = (NSApp.delegate as? AppDelegate)?.shellWindowController as? ShellWindowController,
+            let host = shell.model.host
         {
-            shell.model.host?.toast(message: String(format: I18n.str("Install and set up %@ first"), service), style: .failure)
+            host.toast(message: hint, style: .failure)
+        } else {
+            // No toast host yet (the shell window is still building): a plain
+            // alert carries the hint instead of dropping it on the floor.
+            MiaoYanAlert.show(message: hint, style: .warning)
         }
     }
 }

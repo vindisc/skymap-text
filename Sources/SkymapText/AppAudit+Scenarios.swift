@@ -323,3 +323,25 @@ func outlineContentWidthStaysWithinBounds(_ ctx: AuditContext) async throws {
     try expect(wide == ShellModel.outlineMaxWidth, "a long outline clamps at the cap")
     try expect(wide > narrow, "the width follows the content")
 }
+
+/// Return in the search field commits the search: with nothing picked it
+/// opens the first result, and the search closes afterwards. The old guard
+/// required the selected title to START with the query, stranding body and
+/// mid-title matches on a dead key.
+@MainActor
+func searchReturnOpensTheFirstResult(_ ctx: AuditContext) async throws {
+    _ = await ctx.makeLoadedNote("search-return-a", headings: ["H"])
+    let second = await ctx.makeLoadedNote("search-return-b", headings: ["H"])
+    let model = ctx.model
+    model.isSearchOpen = true
+    // "return-b" sits mid-title for both notes - the exact shape the old
+    // prefix guard rejected.
+    model.searchText = "return-b"
+    await ctx.waitUntil { model.notes.count == 1 }
+    try expect(model.notes.first?.url == second.url, "the query lists the matching note")
+    model.selectedNoteURL = nil
+    model.searchFieldReturn()
+    try expect(model.selectedNoteURL == second.url, "Return opens the first result")
+    try expect(!model.isSearchOpen, "the search closes on commit")
+    try expect(model.searchText.isEmpty, "the query clears on commit")
+}
