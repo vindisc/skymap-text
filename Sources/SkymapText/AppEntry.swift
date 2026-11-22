@@ -15,9 +15,17 @@ struct SkymapTextApp {
         // scripts/selfcheck.sh consumes it. The app never reaches its event
         // loop in this mode.
         if CommandLine.arguments.contains("--audit") {
-            // AppAudit is @MainActor; the await hops there from wherever the
-            // entry point starts.
+            // The audit writes temp-folder storage paths and test state into
+            // the defaults domain; snapshot the whole domain and restore it
+            // after, so the user's real library pointer never moves.
+            let domain = Bundle.main.bundleIdentifier ?? "local.skymaptext"
+            let snapshot = UserDefaults.standard.persistentDomain(forName: domain)
             let code = await AppAudit.run()
+            if let snapshot {
+                UserDefaults.standard.setPersistentDomain(snapshot, forName: domain)
+            } else {
+                UserDefaults.standard.removePersistentDomain(forName: domain)
+            }
             exit(code)
         }
         let app = NSApplication.shared

@@ -447,7 +447,8 @@ final class ShellModel {
         if !sidebarRows.contains(where: { $0.id == scope }) {
             scope = .all
         }
-        computeNavRows()
+        // navRows 挂到 computeNotes 后统一重建：reload 处的同步重建会用旧
+        // notes 渲染一次中间态，切目录时那一下跳动就是它。
         refreshNotes(keepSelection: true)
     }
 
