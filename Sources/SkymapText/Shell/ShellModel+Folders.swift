@@ -32,6 +32,8 @@ extension ShellModel {
             guard response == .alertFirstButtonReturn else { return }
             self?.createFolder(named: field.stringValue, parent: parent)
         }
+        // Same tick as the attach: the stacked first frame never draws.
+        MiaoYanAlert.arrangeIconBesideTitle(alert)
         DispatchQueue.main.async { field.becomeFirstResponder() }
     }
 

@@ -16,11 +16,12 @@ func alertSheetGeometry(_ ctx: AuditContext) async throws {
     MiaoYanAlert.style(alert)
     alert.window.orderFrontRegardless()
     let before = alert.window.frame.height
-    await ctx.waitUntil { alert.window.frame.height < before }
+    // The surgery is synchronous now: no runloop turn, no stacked frame.
+    MiaoYanAlert.arrangeIconBesideTitle(alert)
     guard let content = alert.window.contentView else {
         throw AuditFailure(message: "alert content view missing")
     }
-    try expect(alert.window.frame.height <= before - 32, "the sheet reclaims the title band")
+    try expect(alert.window.frame.height <= before - 32, "the surgery reclaims the title band in the same tick")
     guard
         let icon = content.subviews.first(where: { String(describing: type(of: $0)).contains("ImageView") })
     else {

@@ -583,7 +583,8 @@ extension AppDelegate {
     func runAlertLayoutProbe() {
         FileHandle.standardError.write("[probe] armed\n".data(using: .utf8)!)
         func dump(_ tag: String) {
-            guard let window = NSApp.mainWindow ?? NSApp.keyWindow,
+            guard let window = NSApp.mainWindow ?? NSApp.keyWindow
+                ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }),
                 let content = window.contentView
             else {
                 FileHandle.standardError.write("[probe] \(tag): no window\n".data(using: .utf8)!)
@@ -620,6 +621,7 @@ extension AppDelegate {
                 return
             }
             alert.beginSheetModal(for: window, completionHandler: { _ in })
+            MiaoYanAlert.arrangeIconBesideTitle(alert)
             dump("t+0")
             for delay in [0.05, 0.15, 0.4, 1.0] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { dump("t+\(delay)") }

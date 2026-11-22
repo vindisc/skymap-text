@@ -576,58 +576,59 @@ enum MiaoYanAlert {
             glass.responds(to: NSSelectorFromString(cornerKey)),
             let radius = glass.value(forKey: cornerKey) as? CGFloat
         else {
-            arrangeIconBesideTitle(alert)
+            // A window without the glass sibling is the classic layout, whose
+            // title already sits beside the icon.
             return
         }
         content.wantsLayer = true
         content.layer?.backgroundColor = Theme.paper.resolvedColor(for: alert.window.effectiveAppearance).cgColor
         content.layer?.cornerRadius = radius
         content.layer?.cornerCurve = .continuous
-        arrangeIconBesideTitle(alert)
     }
 
     /// macOS 26 stacks the bird above the title; the app's input sheets keep
     /// them on one row (bird left, title right, centred to each other). The
-    /// sheet's attach layout settles synchronously inside beginSheetModal
-    /// (probed on 26.0: stable from t+0), so surgery a runloop turn later
-    /// sticks — no later pass re-runs. The window shrinks first (AppKit then
-    /// re-flows the icon block into the freed slot), then the title frame is
-    /// set beside the bird. Classic layouts already sit the title beside the
-    /// icon, and the frame relationship guard leaves those untouched.
-    private static func arrangeIconBesideTitle(_ alert: NSAlert) {
+    /// surgery runs synchronously right after the sheet attach or the alert
+    /// layout - both settle the frames synchronously (probed on 26.0: stable
+    /// from t+0) - so the stacked layout never reaches the screen: the old
+    /// next-runloop version flashed it for one frame before flipping. The
+    /// window shrinks first (AppKit re-flows the icon block into the freed
+    /// slot), then the title frame is set beside the bird. Classic layouts
+    /// already sit the title beside the icon, and the frame guard leaves
+    /// those untouched. Callers: present()'s sheet branch and the input
+    /// sheets that drive beginSheetModal themselves.
+    static func arrangeIconBesideTitle(_ alert: NSAlert) {
         // Input sheets only: the informative-text alerts keep the system stack.
         guard alert.accessoryView != nil, alert.icon != nil else { return }
-        DispatchQueue.main.async {
-            let window = alert.window
-            guard window.isVisible, let content = window.contentView else { return }
-            let subs = content.subviews
-            guard
-                let icon = subs.first(where: { String(describing: type(of: $0)).contains("ImageView") }),
-                let title = subs.first(where: {
-                    ($0 as? NSTextField)?.stringValue == alert.messageText && $0.frame.width > 4
-                }),
-                // Stacked layout only: the title sits wholly below the bird.
-                title.frame.maxY < icon.frame.minY,
-                let below = subs
-                    .filter({ $0 !== icon && $0 !== title && $0.frame.maxY <= title.frame.minY + 0.5 })
-                    .max(by: { $0.frame.maxY < $1.frame.maxY })
-            else { return }
-            let gapAbove = icon.frame.minY - title.frame.maxY
-            let shrink = title.frame.height + gapAbove
-            var frame = window.frame
-            frame.origin.y += shrink  // the sheet's top edge stays glued to the titlebar
-            frame.size.height -= shrink
-            window.setFrame(frame, display: true)
-            // The re-flow moved the icon into the freed top slot; re-read it.
-            let iconNow = content.subviews.first(where: { String(describing: type(of: $0)).contains("ImageView") })
-            guard let iconNow, window.frame.height == frame.height else { return }
-            let x = iconNow.frame.maxX + 12
-            title.frame = NSRect(
-                x: x,
-                y: iconNow.frame.midY - title.frame.height / 2,
-                width: content.frame.width - x - 20,
-                height: title.frame.height)
-        }
+        let window = alert.window
+        guard window.isVisible, let content = window.contentView else { return }
+        let subs = content.subviews
+        guard
+            let icon = subs.first(where: { String(describing: type(of: $0)).contains("ImageView") }),
+            let title = subs.first(where: {
+                ($0 as? NSTextField)?.stringValue == alert.messageText && $0.frame.width > 4
+            }),
+            // Stacked layout only: the title sits wholly below the bird.
+            title.frame.maxY < icon.frame.minY,
+            let below = subs
+                .filter({ $0 !== icon && $0 !== title && $0.frame.maxY <= title.frame.minY + 0.5 })
+                .max(by: { $0.frame.maxY < $1.frame.maxY })
+        else { return }
+        let gapAbove = icon.frame.minY - title.frame.maxY
+        let shrink = title.frame.height + gapAbove
+        var frame = window.frame
+        frame.origin.y += shrink  // the sheet's top edge stays glued to the titlebar
+        frame.size.height -= shrink
+        window.setFrame(frame, display: true)
+        // The re-flow moved the icon into the freed top slot; re-read it.
+        let iconNow = content.subviews.first(where: { String(describing: type(of: $0)).contains("ImageView") })
+        guard let iconNow, window.frame.height == frame.height else { return }
+        let x = iconNow.frame.maxX + 12
+        title.frame = NSRect(
+            x: x,
+            y: iconNow.frame.midY - title.frame.height / 2,
+            width: content.frame.width - x - 20,
+            height: title.frame.height)
     }
 
     static func present(
@@ -638,7 +639,12 @@ enum MiaoYanAlert {
         style(alert)
         if let window, window.isVisible {
             alert.beginSheetModal(for: window, completionHandler: completion)
+            // Same tick as the attach: the stacked first frame never draws.
+            arrangeIconBesideTitle(alert)
         } else {
+            // A modal alert's frames are settled by style()'s layout; the
+            // surgery lands before the window shows.
+            arrangeIconBesideTitle(alert)
             completion(alert.runModal())
         }
     }
