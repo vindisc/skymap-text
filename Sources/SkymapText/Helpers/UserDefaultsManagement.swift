@@ -93,11 +93,11 @@ public enum UserDefaultsManagement {
     static var fullScreen = false
     static var isWillFullScreen = false
     static var editorLineSpacing = 3.0
-    /// 1.4 of the size plus the 3pt above lands at ≈1.59em at the 16pt
-    /// default — the preview's injected 1.58 line-height (typography.css's
-    /// 1.64 heti rhythm loses to the !important override). 1.3 read a full
-    /// step tighter than the rendered mode and the ⌘E switch reflowed.
-    static var editorLineHeight = 1.4
+    /// 1.45 of the size plus the 3pt above lands at ≈1.64em at the 16pt
+    /// default — the preview's .heti reading rhythm in typography.css (the
+    /// 1.58 in HtmlManager is the print path's, not the screen's). 1.3 read
+    /// a full step tighter than the rendered mode and the ⌘E switch reflowed.
+    static var editorLineHeight = 1.45
     /// Tracking as a share of the font size, the same figure the preview uses
     /// in typography.css. The fixed 0.5pt and 0.6pt it replaces, and the
     /// preview's 0.04em, were tuned in 2022 around LXGW WenKai, a tight face;
