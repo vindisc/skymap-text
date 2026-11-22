@@ -247,6 +247,7 @@ enum AppAudit {
         ("trash.deleteMovesTheNoteIntoTheTrashScope", deleteMovesTheNoteIntoTheTrashScope),
         ("trash.undoAfterDeleteRestoresTheNote", undoAfterDeleteRestoresTheNote),
         ("persistence.scopeLayoutAndOutlineVisibility", scopeLayoutAndOutlineVisibilityPersistAcrossReinit),
+        ("debug.alertSheetGeometry", alertSheetGeometry),
     ]
     print("SkymapText audit: \(tests.count) scenarios")
     var failures = 0

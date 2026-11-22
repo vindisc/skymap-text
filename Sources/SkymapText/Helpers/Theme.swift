@@ -522,7 +522,14 @@ enum MiaoYanAlert {
         alert.informativeText = informativeText ?? ""
         alert.alertStyle = style
         // The bird alone on the paper, without the app icon's tile and shadow.
-        if let bird = NSImage(named: "alertIcon") {
+        // The flattened loose PNGs lost their 1x/2x pairing: NSImage(named:)
+        // sizes itself at 128pt (its largest representation) and the sheet
+        // grows around an oversized bird. Load the 1x file directly and pin
+        // it at the catalog's 64pt.
+        if let birdURL = Bundle.main.url(forResource: "alertIcon", withExtension: "png"),
+            let bird = NSImage(contentsOf: birdURL)
+        {
+            bird.size = NSSize(width: 64, height: 64)
             alert.icon = bird
         }
 
