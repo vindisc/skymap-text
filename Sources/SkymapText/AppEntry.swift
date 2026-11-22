@@ -19,7 +19,11 @@ struct SkyBookApp {
             let old = UserDefaults.standard.persistentDomain(forName: "local.skymaptext"),
             old["storageUrl"] != nil
         {
-            UserDefaults.standard.setPersistentDomain(old, forName: newDomain)
+            var migrated = old
+            // The shell is the only window now: a stored opt-out from the
+            // storyboard era would hide it with no way back in.
+            migrated.removeValue(forKey: "MiaoYanShell")
+            UserDefaults.standard.setPersistentDomain(migrated, forName: newDomain)
         }
 
         // `--audit` runs the headless self-checks and exits with the verdict;
@@ -29,7 +33,10 @@ struct SkyBookApp {
             // The audit writes temp-folder storage paths and test state into
             // the defaults domain; snapshot the whole domain and restore it
             // after, so the user's real library pointer never moves.
-            let domain = Bundle.main.bundleIdentifier ?? "local.skymaptext"
+            // Same fallback as the migration above: a bare `skybook --audit`
+            // (selfcheck) has no bundle identifier; reading and restoring a
+            // different domain than the writes touch left temp state behind.
+            let domain = Bundle.main.bundleIdentifier ?? "local.skybook"
             let snapshot = UserDefaults.standard.persistentDomain(forName: domain)
             let code = await AppAudit.run()
             if let snapshot {

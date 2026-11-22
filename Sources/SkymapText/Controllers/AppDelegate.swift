@@ -125,9 +125,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if CommandLine.arguments.contains("--alert-probe") {
             runAlertLayoutProbe()
         }
+        #if DEBUG
         if CommandLine.arguments.contains("--palette-probe") {
             runPaletteProbe()
         }
+        #endif
 
         applyAppearance()
 
@@ -636,6 +638,7 @@ extension AppDelegate {
 
 // MARK: - Palette probe (temporary scaffolding)
 
+#if DEBUG
 extension AppDelegate {
     /// Opens the search palette with a sample query and snapshots the panel
     /// off-screen (cacheDisplay does not need a lit display), for layout
@@ -683,3 +686,4 @@ extension AppDelegate {
         }
     }
 }
+#endif

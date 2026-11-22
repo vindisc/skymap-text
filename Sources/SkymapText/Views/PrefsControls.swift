@@ -25,8 +25,8 @@ enum PrefsMetrics {
     /// the clear button so the keys stay centred.
     static let shortcutSideRoom: CGFloat = 26
     static let shortcutMinWidth: CGFloat = 80
-    static let fontDropdownMaxWidth: CGFloat = 196
-    static let dropdownMaxWidth: CGFloat = 220
+    nonisolated static let fontDropdownMaxWidth: CGFloat = 196
+    nonisolated static let dropdownMaxWidth: CGFloat = 220
 
     static let titleFont = NSFont.systemFont(ofSize: 14, weight: .medium)
     static let detailFont = NSFont.systemFont(ofSize: 12)

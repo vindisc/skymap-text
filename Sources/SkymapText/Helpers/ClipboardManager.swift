@@ -155,8 +155,9 @@ class ClipboardManager {
     /// `files/` it became a second copy of the note, so it is left out, and a
     /// drop of notes alone is refused.
     func dropFiles(
-        from pasteboard: NSPasteboard, at location: Int, storage library: Storage = AppEnvironment.current.storage
+        from pasteboard: NSPasteboard, at location: Int, storage: Storage? = nil
     ) -> Bool? {
+        let library = storage ?? AppEnvironment.current.storage
         let dropped = Self.fileURLs(on: pasteboard)
         guard !dropped.isEmpty else { return dropPromisesOrImage(from: pasteboard, at: location) }
         let urls = dropped.filter { library.getBy(url: $0) == nil }

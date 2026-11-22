@@ -2,8 +2,10 @@
 set -euo pipefail
 
 # One-shot self-check for the spm branch: builds the app, runs the headless
-# audit scenarios (Sources/SkymapText/AppAudit.swift via --audit), then the
-# repo's python gates. Swift tests need no Xcode; SwiftLint runs when installed.
+# audit scenarios (Sources/SkymapText/AppAudit.swift via --audit), packages a
+# throwaway .app so the packaging path is covered too, then runs the repo's
+# python gates. `swift test` is unavailable with the Command Line Tools;
+# SwiftLint runs when installed.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -15,6 +17,9 @@ swift build || FAILED=1
 
 echo "== audit scenarios (--audit, headless) =="
 .build/debug/SkyBook --audit || FAILED=1
+
+echo "== packaging (make_app.sh debug) =="
+scripts/make_app.sh debug >/dev/null || FAILED=1
 
 if command -v swiftlint >/dev/null 2>&1; then
   echo "== swiftlint =="

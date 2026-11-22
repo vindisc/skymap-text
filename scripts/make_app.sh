@@ -13,7 +13,7 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 VERSION_FILE="$ROOT_DIR/VERSION"
-DEFAULT_VERSION="0.1.0-skymap.1"
+DEFAULT_VERSION="0.2.0-skybook.1"
 
 if [[ -f "$VERSION_FILE" ]]; then
   APP_VERSION="$(head -n 1 "$VERSION_FILE" | tr -d '[:space:]')"
@@ -21,6 +21,11 @@ if [[ -f "$VERSION_FILE" ]]; then
 else
   APP_VERSION="$DEFAULT_VERSION"
 fi
+
+# CFBundleVersion must rise with every release (Sparkle compares it); the
+# semantic version pressed together gives 0.2.1 -> 201, 0.10.0 -> 1000.
+APP_BUILD="$(printf '%s' "$APP_VERSION" | awk -F'[.]' '{ printf "%d", $1 * 10000 + $2 * 100 + $3 }')"
+[[ -z "$APP_BUILD" || "$APP_BUILD" == "0" ]] && APP_BUILD=1
 
 cd "$ROOT_DIR"
 swift build -c "$MODE"
@@ -55,8 +60,10 @@ for ttf in "$ROOT_DIR"/Resources/Fonts/*.ttf(N); do
   cp "$ttf" "$RESOURCES_DIR/Fonts/"
 done
 # The app icon is MiaoYan's own app.icns; Markdown.icns is the
-# document-type icon and read as a wrong Dock glyph.
+# document-type icon, so a .md file shows its own glyph in Finder instead of
+# the blank-page default.
 cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/$APP_NAME.icns"
+cp "$ROOT_DIR/Resources/Markdown.icns" "$RESOURCES_DIR/Markdown.icns"
 # The Open Source Licenses window loads this from the bundle.
 cp "$ROOT_DIR/THIRD-PARTY-NOTICES.md" "$RESOURCES_DIR/THIRD-PARTY-NOTICES.md"
 
@@ -97,11 +104,10 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleIconFile</key><string>$APP_NAME.icns</string>
-  <key>CFBundleIconName</key><string>$APP_NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleSignature</key><string>????</string>
   <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleVersion</key><string>$APP_BUILD</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -127,6 +133,7 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
       <array>
         <string>net.daringfireball.markdown</string>
       </array>
+      <key>CFBundleTypeIconFile</key><string>Markdown.icns</string>
       <key>CFBundleTypeExtensions</key>
       <array>
         <string>md</string>
@@ -137,6 +144,7 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
     <dict>
       <key>CFBundleTypeName</key><string>Plain Text</string>
       <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleTypeIconFile</key><string>Markdown.icns</string>
       <key>CFBundleTypeExtensions</key>
       <array>
         <string>txt</string>
@@ -149,6 +157,6 @@ PLIST
 
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 plutil -lint "$CONTENTS_DIR/Info.plist" > /dev/null
-codesign --force --deep --sign - "$APP_DIR" 2>/dev/null
+codesign --force --deep --sign - "$APP_DIR"
 touch "$APP_DIR"
 echo "$APP_DIR"

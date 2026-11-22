@@ -10,7 +10,7 @@ DIST_DIR="$ROOT_DIR/dist"
 ZIP_PATH="$DIST_DIR/SkyBook-$VERSION-macOS.zip"
 
 mkdir -p "$DIST_DIR"
-rm -rf "$DIST_DIR/SkyBook.app"
+rm -rf "$DIST_DIR/SkyBook.app" "$DIST_DIR/SkymapText.app"
 cp -R "$APP_PATH" "$DIST_DIR/SkyBook.app"
 cd "$DIST_DIR"
 /usr/bin/ditto -c -k --keepParent "SkyBook.app" "$ZIP_PATH"
