@@ -653,6 +653,7 @@ private struct ShellSearchField: View {
     var focused: FocusState<Bool>.Binding
     var onSubmit: () -> Void = {}
     let onClose: () -> Void
+    @State private var clearHovered = false
 
     var body: some View {
         let size = CGFloat(UserDefaultsManagement.searchFontSize) + 1
@@ -666,12 +667,21 @@ private struct ShellSearchField: View {
                 .focused(focused)
                 .onSubmit(onSubmit)
                 .onExitCommand(perform: onClose)
-            Button(action: onClose) {
-                SwiftUI.Image(systemName: "xmark.circle.fill")
+            // Only with something to clear. A plain image, not a Button:
+            // Tahoe's hover glass tinted it into a blue chip (2026-11-22);
+            // the hover just fills the outline symbol, like the system's own
+            // clear buttons.
+            if !text.isEmpty {
+                SwiftUI.Image(systemName: clearHovered ? "xmark.circle.fill" : "xmark.circle")
                     .font(.system(size: 11))
-                    .foregroundStyle(ShellStyle.tertiaryText)
+                    .foregroundStyle(clearHovered ? ShellStyle.secondaryText : ShellStyle.tertiaryText)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onClose() }
+                    .onHover { clearHovered = $0 }
+                    .accessibilityLabel(I18n.str("Clear Search"))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { onClose() }
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 9)
         .frame(height: 28)
