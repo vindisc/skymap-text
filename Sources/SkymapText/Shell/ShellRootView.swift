@@ -148,6 +148,9 @@ struct ShellNav: View {
     @State private var scrollBox = ShellScrollViewBox()
     /// Each scope's scroll place, for this session.
     @State private var scrollOffsets: [ShellModel.Scope: CGFloat] = [:]
+    /// A click already has the row under the pointer; the next scope change
+    /// must not re-center it. Arrow stepping leaves this false and centers.
+    @State private var suppressScopeCentering = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -218,14 +221,23 @@ struct ShellNav: View {
                 }
                 .onChange(of: model.listContent) { old, new in
                     guard let new, !new.isSearch else { return }
-                    revealSelection(proxy, restoring: old?.scope == new.scope ? nil : scrollOffsets[new.scope] ?? 0)
+                    // A scope with no remembered place keeps the viewport:
+                    // forcing the top made a folder clicked mid-list fly away
+                    // (the empty-folder jump, 2026-11-22).
+                    revealSelection(proxy, restoring: old?.scope == new.scope ? nil : scrollOffsets[new.scope])
                 }
                 .onAppear {
                     if model.listContent != nil { revealSelection(proxy, restoring: nil) }
                 }
-                // A folder row reached by the arrows stays in view.
+                // A folder row reached by the arrows stays in view. A clicked
+                // row already sits where the pointer put it; re-centering it
+                // made the column jump (2026-11-22).
                 .onChange(of: model.scope) { _, scope in
-                    proxy.scrollTo(rowID(forScope: scope), anchor: .center)
+                    if suppressScopeCentering {
+                        suppressScopeCentering = false
+                    } else {
+                        proxy.scrollTo(rowID(forScope: scope), anchor: .center)
+                    }
                 }
             }
             .focusable()
@@ -278,6 +290,7 @@ struct ShellNav: View {
             ShellSidebarRow(model: model, row: sidebarRow, isSelected: model.scope == sidebarRow.id)
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    suppressScopeCentering = true
                     model.scope = sidebarRow.id
                     navFocused = true
                 }
@@ -330,8 +343,9 @@ struct ShellNav: View {
     }
 
     /// NotesTableView.restoreScrollPosition: the scope's remembered place
-    /// (`offset`, the top for one not seen yet), then the open note scrolled
-    /// into view when it is off screen. Runs once the new rows are laid out.
+    /// (nil keeps the viewport, e.g. a scope not seen yet), then the open
+    /// note scrolled into view when it is off screen. Runs once the new rows
+    /// are laid out.
     private func revealSelection(_ proxy: ScrollViewProxy, restoring offset: CGFloat?) {
         Task { @MainActor in
             if let offset, let scrollView = scrollBox.view {
@@ -386,8 +400,11 @@ private struct ShellSidebarRow: View {
                         if !focused, model.renamingFolderURL == folder.url { model.renameFolder(folder, to: draft) }
                     }
             } else {
+                // The tree's structure rows (scope and folders) carry the
+                // medium weight, the same face the outline's headings use;
+                // note rows sit a level under them in size and ink.
                 Text(row.title)
-                    .font(ShellStyle.interface(fontSize))
+                    .font(ShellStyle.interface(fontSize, weight: ShellStyle.titleWeight))
                     .kerning(ShellStyle.tracking(fontSize))
                     .foregroundStyle(ShellStyle.text)
                     .lineLimit(1)
@@ -575,7 +592,10 @@ private struct ShellNoteRow: View {
     var indent: Int = 0
 
     var body: some View {
-        let nameSize = CGFloat(UserDefaultsManagement.nameFontSize)
+        // One size under the folder rows, rhyming with the outline column's
+        // rows; the selected note stays at this size but returns to the
+        // primary ink on its plate, never reading larger than the folders.
+        let nameSize = CGFloat(UserDefaultsManagement.nameFontSize - 1)
         // Notes sit a level under the folders: their titles take the
         // secondary ink so the folder names carry the primary one; the open
         // note returns to the primary ink on its selection plate.

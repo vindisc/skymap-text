@@ -1311,20 +1311,24 @@ final class ShellSplitViewController: NSSplitViewController {
         let visible = outlineOn && hasNote
         let items = splitViewItems
         guard items.count == 3 else { return }
-        var collapsedChanged = false
-        var hiddenChanged = false
-        if items[2].isCollapsed != !visible { items[2].isCollapsed = !visible; collapsedChanged = true }
+        // Detect first, mutate only inside the animation group: an early
+        // synchronous `isCollapsed =` collapsed the pane instantly and the
+        // later animator call became a no-op — the empty-scope jump. The
+        // hidden flag stays synchronous; it is the alpha animation's state.
+        let collapseNeeded = items[2].isCollapsed != !visible
         let outlineView = items[2].viewController.view
-        if outlineView.isHidden == visible { outlineView.isHidden = !visible; hiddenChanged = true }
-        guard collapsedChanged || hiddenChanged else { return }
+        let hideNeeded = outlineView.isHidden == visible
+        if hideNeeded { outlineView.isHidden = !visible }
+        guard collapseNeeded || hideNeeded else { return }
         isApplyingLayout = true
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Theme.Motion.change
             context.timingFunction = Theme.Motion.curve
-            if hiddenChanged {
-                outlineView.animator().alphaValue = visible ? 1 : 0
-            } else {
+            if collapseNeeded {
                 items[2].animator().isCollapsed = !visible
+            }
+            if hideNeeded {
+                outlineView.animator().alphaValue = visible ? 1 : 0
             }
         } completionHandler: { [weak self] in
             Task { @MainActor in
