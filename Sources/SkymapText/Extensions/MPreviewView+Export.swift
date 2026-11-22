@@ -311,6 +311,12 @@ extension MPreviewView {
     // MARK: - Export Methods
     public func exportPdf() {
         guard let (vc, note) = ExportHosts.target() else { return }
+        // The page still showing the previous note (or none) would be saved
+        // under this note's name; fail instead of capturing a stale rendering.
+        guard isPageReady, displayedNote === note else {
+            vc.toastExport(status: false)
+            return
+        }
 
         // Reveal.js-backed PPT export stays on createPDF: slide pagination is provided by reveal,
         // and the snapshot API is exactly what captures each slide page.
@@ -493,6 +499,10 @@ extension MPreviewView {
 
     public func exportImage() {
         guard let (vc, note) = ExportHosts.target() else { return }
+        guard isPageReady, displayedNote === note else {
+            vc.toastExport(status: false)
+            return
+        }
 
         performExport(viewController: vc) { [weak self] cleanup in
             guard let self else {
@@ -552,6 +562,12 @@ extension MPreviewView {
 
     public func exportPPTOptimized() {
         guard let (vc, note) = ExportHosts.target(deck: true) else { return }
+        guard isPageReady else {
+            UserDefaultsManagement.isOnExportPPT = false
+            vc.finishPPTExport()
+            vc.toastExport(status: false)
+            return
+        }
 
         // Show progress toast immediately
         vc.toastPersistent(message: "\(I18n.str("Exporting...")) 0%")

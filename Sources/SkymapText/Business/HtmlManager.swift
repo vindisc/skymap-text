@@ -955,6 +955,15 @@ class HtmlManager {
             "DOWN_META": downMeta,
             "CUSTOM_CSS": customCSS,
         ]
+        // The template ships an empty <title>; the note's name belongs there,
+        // so the page and an exported HTML file are identified. The name is
+        // note text, so it is escaped before it enters markup.
+        let title = currentName
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+        replacements["<title></title>"] = "<title>\(title)</title>"
         if let language = LanguageType.current.documentLanguage {
             replacements["<html>"] = "<html lang=\"\(language)\">"
         }

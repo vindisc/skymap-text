@@ -111,6 +111,18 @@ class MPreviewView: WKWebView, WKUIDelegate {
         note
     }
 
+    /// The page on screen finished loading its template and the note's
+    /// content: an export that captures the web view must wait for it, or it
+    /// records the previous note's rendering while the note is still loading.
+    var isPageReady: Bool {
+        hasLoadedTemplate && !isLoadingTemplate
+    }
+
+    /// The page on screen is the slide deck, not an ordinary preview page.
+    var isSlidesPage: Bool {
+        pageIsSlides
+    }
+
     init(frame: CGRect, note: Note, closure: MPreviewViewClosure?) {
         self.closure = closure
         let userContentController = WKUserContentController()
@@ -169,15 +181,7 @@ class MPreviewView: WKWebView, WKUIDelegate {
         applyBackgroundColor(determineBackgroundColor())
         // Set webview appearance to match current theme
         self.appearance = UserDataService.instance.isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
-        appDidBecomeActiveObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didBecomeActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleApplicationDidBecomeActive()
-            }
-        }
+        installAppDidBecomeActiveObserver()
 
         Self.ensureBundlePreinitialized()
         load(note: note)
@@ -192,6 +196,10 @@ class MPreviewView: WKWebView, WKUIDelegate {
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil {
             removeAppDidBecomeActiveObserver()
+        } else if appDidBecomeActiveObserver == nil {
+            // A view reused for the next note was detached first, which
+            // dropped the activation observer for good.
+            installAppDidBecomeActiveObserver()
         }
     }
 
@@ -1203,11 +1211,30 @@ class MPreviewView: WKWebView, WKUIDelegate {
     }
 
     @MainActor
+    private func installAppDidBecomeActiveObserver() {
+        guard appDidBecomeActiveObserver == nil else { return }
+        appDidBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleApplicationDidBecomeActive()
+            }
+        }
+    }
+
+    @MainActor
     private func handleApplicationDidBecomeActive() {
         guard hasLoadedTemplate else { return }
         guard HtmlManager.ensurePreviewResourcesAvailable() else { return }
-        guard let note = inPlaceNote ?? note else { return }
-        load(note: note, force: true)
+        // A forced reload here threw away the reading position every time the
+        // app came back, and could blank the page in the middle of a capture.
+        // Only a theme change that happened while away needs the page.
+        guard pageIsDark != determineDarkTheme(), !Self.isExporting,
+            !UserDefaultsManagement.isOnExportPPT
+        else { return }
+        updateAppearance()
     }
 
     @MainActor
