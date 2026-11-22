@@ -126,6 +126,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         applyAppearance()
 
+        // --start-preview boots into the rendered mode, so screenshots can
+        // verify preview typography without pressing ⌘E (--alert-probe's
+        // sibling scaffolding).
+        if CommandLine.arguments.contains("--start-preview") {
+            UserDefaultsManagement.preview = true
+        }
+
         addGlobalKeyboardMonitor()
         if UserDefaultsManagement.storagePath == nil {
             requestStorageDirectory()
