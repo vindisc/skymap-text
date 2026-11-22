@@ -220,36 +220,6 @@ enum AppAudit {
     static func run() async -> Int32 {
         let ctx = AuditContext.shared
         let tests: [(String, (AuditContext) async throws -> Void)] = [
-            ("outline.followsSelectedNoteContent", outlineFollowsTheSelectedNoteContent),
-            ("outline.clearsForColdNoteThenFillsAfterAsyncLoad", outlineClearsForColdNoteThenFillsAfterAsyncLoad),
-            ("outline.reDerivesWhenThePreviewPageLoads", outlineReDerivesWhenThePreviewPageLoads),
-            ("nav.rowsAreFoldersAndNotesWithoutDateApparatus", navRowsAreFoldersAndNotesWithoutDateApparatus),
-            ("nav.emptyFolderShowsHintRow", emptyFolderShowsHintRow),
-            ("nav.mixedArrowsWalkFoldersAndNotes", mixedArrowsWalkFoldersAndNotes),
-            ("editor.twoStateToggleFlipsAndPersists", twoStateToggleFlipsAndPersists),
-            ("preview.reuseGateRejectsAFreshView", previewReuseGateRejectsAFreshView),
-            ("rename.createNoteCommitsPendingRename", createNoteCommitsPendingRename),
-        ]
-        print("SkymapText audit: \(tests.count) scenarios")
-        var failures = 0
-        for (name, test) in tests {
-            do {
-                try await test(ctx)
-                print("✓ \(name)")
-            } catch {
-                failures += 1
-                print("✗ \(name): \(error)")
-            }
-        }
-        print(failures == 0 ? "全部通过" : "\(failures) 个场景失败")
-        return Int32(failures == 0 ? 0 : 1)
-    }
-}
-
-@MainActor
-func runAuditTests() async -> Int {
-    let ctx = AuditContext.shared
-    let tests: [(String, (AuditContext) async throws -> Void)] = [
         ("outline.followsSelectedNoteContent", outlineFollowsTheSelectedNoteContent),
         ("outline.clearsForColdNoteThenFillsAfterAsyncLoad", outlineClearsForColdNoteThenFillsAfterAsyncLoad),
         ("outline.reDerivesWhenThePreviewPageLoads", outlineReDerivesWhenThePreviewPageLoads),
@@ -259,6 +229,24 @@ func runAuditTests() async -> Int {
         ("editor.twoStateToggleFlipsAndPersists", twoStateToggleFlipsAndPersists),
         ("preview.reuseGateRejectsAFreshView", previewReuseGateRejectsAFreshView),
         ("rename.createNoteCommitsPendingRename", createNoteCommitsPendingRename),
+        ("outline.parsesHeadingLevelsOneToSix", outlineParsesHeadingLevelsOneToSix),
+        ("outline.leadingSpacesDoNotCountTowardTheLevel", outlineLeadingSpacesDoNotCountTowardTheLevel),
+        ("outline.stripsClosingHashesAndSkipsEmptyAndCode", outlineStripsClosingHashesAndSkipsEmptyAndCode),
+        ("outline.handlesCRLFLineEndings", outlineHandlesCRLFLineEndings),
+        ("outline.bufferLineIncludesFrontmatterOffset", outlineBufferLineIncludesFrontmatterOffset),
+        ("outline.pinnedNoteSurvivesReloadIdentity", outlinePinnedNoteSurvivesReloadIdentity),
+        ("nav.pinnedNoteSortsFirst", navRowsPinnedNoteSortsFirst),
+        ("nav.rowTitlesRenderUntitledNotes", navRowTitlesRenderUntitledNotes),
+        ("nav.duplicateNamesInDifferentFoldersBothRender", duplicateNamesInDifferentFoldersBothRender),
+        ("nav.arrowsWalkTheWholeColumnSequence", arrowsWalkTheWholeColumnSequence),
+        ("nav.arrowsStopAtColumnEdges", arrowsStopAtColumnEdges),
+        ("rename.toTheSameNameIsANoOp", renameToTheSameNameIsANoOp),
+        ("rename.sanitizesSlashesIntoColons", renameSanitizesSlashesIntoColons),
+        ("rename.anEmptyDraftLeavesTheNameAlone", renameAnEmptyDraftLeavesTheNameAlone),
+        ("rename.refusesTitlesBeyondTheFileLimit", renameRefusesTitlesBeyondTheFileLimit),
+        ("trash.deleteMovesTheNoteIntoTheTrashScope", deleteMovesTheNoteIntoTheTrashScope),
+        ("trash.undoAfterDeleteRestoresTheNote", undoAfterDeleteRestoresTheNote),
+        ("persistence.scopeLayoutAndOutlineVisibility", scopeLayoutAndOutlineVisibilityPersistAcrossReinit),
     ]
     print("SkymapText audit: \(tests.count) scenarios")
     var failures = 0
@@ -273,4 +261,5 @@ func runAuditTests() async -> Int {
     }
     print(failures == 0 ? "全部通过" : "\(failures) 个场景失败")
     return failures == 0 ? 0 : 1
+}
 }

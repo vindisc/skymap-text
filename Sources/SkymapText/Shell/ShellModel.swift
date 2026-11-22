@@ -1775,12 +1775,27 @@ final class ShellModel {
             text = note.content.string
         }
         var entries: [OutlineEntry] = []
-        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+        var inFence = false
+        for (index, rawLine) in text.components(separatedBy: "\n").enumerated() {
+            // A fenced code block's contents are not headings, as the preview
+            // renders them.
+            let fenceProbe = rawLine.trimmingCharacters(in: .whitespaces)
+            if fenceProbe.hasPrefix("```") || fenceProbe.hasPrefix("~~~") {
+                inFence = !inFence
+                continue
+            }
+            if inFence { continue }
             // ATX headings, optionally indented up to three spaces and closed
-            // by trailing hashes, as CommonMark reads them.
-            var level = 0
+            // by trailing hashes, as CommonMark reads them. A CRLF line keeps
+            // its carriage return out of the title; leading spaces are only
+            // indent (up to three, four reads as indented code) and never
+            // count toward the level.
+            let line = rawLine.trimmingCharacters(in: CharacterSet(charactersIn: "\r"))
+            var indent = 0
             var cursor = line.startIndex
-            while cursor < line.endIndex, line[cursor] == " ", level <= 3 { cursor = line.index(after: cursor) }
+            while cursor < line.endIndex, line[cursor] == " " { indent += 1; cursor = line.index(after: cursor) }
+            guard indent <= 3, cursor < line.endIndex, line[cursor] == "#" else { continue }
+            var level = 0
             while cursor < line.endIndex, line[cursor] == "#", level < 6 {
                 level += 1
                 cursor = line.index(after: cursor)
