@@ -258,10 +258,158 @@ final class ShellModel {
         return .project(project.url)
     }
 
-    var searchText = "" {
+    // MARK: - Search palette
+
+    /// The command palette: a centred overlay over the shell, so the folder
+    /// tree never gives way to results. Its search runs its own pipeline —
+    /// the notes list, the nav rows and the scopes stay untouched underneath.
+    struct PaletteResult: Equatable, Identifiable {
+        let url: URL
+        let title: String
+        let folder: String
+        let priority: Int
+        /// The body hit's context line; nil for a title-only match.
+        let snippet: String?
+        /// The body hit's zero-based buffer line, for the jump on commit.
+        let hitLine: Int?
+
+        var id: URL { url }
+    }
+
+    var isPaletteOpen = false
+    var paletteQuery = "" {
         didSet {
-            guard searchText != oldValue else { return }
-            scheduleRefresh()
+            guard paletteQuery != oldValue else { return }
+            schedulePaletteSearch()
+        }
+    }
+    /// The row the arrows point at; Return opens it.
+    var paletteSelected = 0
+    private(set) var paletteResults: [PaletteResult] = []
+    @ObservationIgnored private var paletteTask: Task<Void, Never>?
+
+    func togglePalette() {
+        isPaletteOpen ? closePalette() : openPalette()
+    }
+
+    /// Opens the palette, optionally seeded from a URL route or the editor's
+    /// find pasteboard flow. The query runs immediately, not debounced: the
+    /// caller came with one.
+    func openPalette(query: String = "") {
+        isPaletteOpen = true
+        if paletteQuery != query { paletteQuery = query }
+        paletteSelected = 0
+        runPaletteSearch()
+    }
+
+    func closePalette() {
+        guard isPaletteOpen else { return }
+        isPaletteOpen = false
+        paletteTask?.cancel()
+    }
+
+    private func schedulePaletteSearch() {
+        paletteTask?.cancel()
+        paletteTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled, let self else { return }
+            self.runPaletteSearch()
+        }
+    }
+
+    /// The whole library, not the scope: the palette is where a note is
+    /// found, wherever it sits. Title matches rank first; body hits then fill
+    /// with their hit line and snippet. An empty query lists the recently
+    /// edited notes instead.
+    func runPaletteSearch() {
+        let query = paletteQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let terms = query.lowercased().split(separator: " ").map(String.init)
+        paletteSelected = 0
+        if terms.isEmpty {
+            let recent = storage.noteList
+                .filter { !$0.isTrash() }
+                .sorted { $0.modifiedLocalAt > $1.modifiedLocalAt }
+                .prefix(8)
+            paletteResults = recent.map { note in
+                PaletteResult(
+                    url: note.url, title: note.title, folder: folderName(of: note.url),
+                    priority: 0, snippet: nil, hitLine: nil)
+            }
+            return
+        }
+        let candidates = storage.noteList.filter { !$0.isTrash() }.enumerated().map { index, note in
+            NoteSearchCandidate(
+                index: index,
+                title: (note.title.isEmpty ? note.url.deletingPathExtension().lastPathComponent : note.title).lowercased(),
+                url: note.url,
+                loadedText: note.isContentLoaded ? note.content.string : nil)
+        }
+        let generation = paletteQuery
+        paletteTask = Task { [weak self] in
+            let matches = await Task.detached(priority: .userInitiated) {
+                NoteContentMatcher.match(candidates, terms: terms, limit: 60, isCancelled: { Task.isCancelled })
+            }.value
+            guard !Task.isCancelled, let self else { return }
+            guard self.paletteQuery == generation else { return }
+            let notes = self.storage.noteList
+            let modified = Dictionary(uniqueKeysWithValues: notes.map { ($0.url, $0.modifiedLocalAt) })
+            let results = matches.map { match -> PaletteResult in
+                let note = notes[match.index]
+                return PaletteResult(
+                    url: note.url, title: note.title, folder: self.folderName(of: note.url),
+                    priority: match.priority, snippet: match.snippet, hitLine: match.hitLine)
+            }
+            self.paletteResults = results.sorted {
+                if $0.priority != $1.priority { return $0.priority > $1.priority }
+                return (modified[$0.url] ?? .distantPast) > (modified[$1.url] ?? .distantPast)
+            }
+        }
+    }
+
+    /// The note's folder name relative to the library root, one level deep.
+    private func folderName(of url: URL) -> String {
+        let root = storage.getMainProject().url.path
+        let path = url.deletingLastPathComponent().path
+        guard path.hasPrefix(root), path.count > root.count else { return "" }
+        return String(path.dropFirst(root.count + 1))
+    }
+
+    /// The arrows in the palette.
+    func paletteMove(_ offset: Int) {
+        guard !paletteResults.isEmpty else { return }
+        paletteSelected = min(max(paletteSelected + offset, 0), paletteResults.count - 1)
+    }
+
+    /// Return commits: the picked note opens and the view jumps to the body
+    /// hit's line. ⌘Return — or Return with no results — makes a note named
+    /// after the query, as the nvALT breed does.
+    func paletteCommit(create: Bool = false) {
+        let query = paletteQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if create || paletteResults.isEmpty {
+            closePalette()
+            createNote(name: query)
+            return
+        }
+        let result = paletteResults[min(paletteSelected, paletteResults.count - 1)]
+        let line = result.hitLine
+        selectedNoteURL = result.url
+        closePalette()
+        if editorMode == .preview { editorMode = .edit }
+        jumpAfterOpen(line: line)
+    }
+
+    /// The commit's jump: the note may open cold, so the line scroll waits
+    /// for the buffer to hold the note's content before it moves.
+    private func jumpAfterOpen(line: Int?) {
+        guard let line else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            for _ in 0..<150 where self.editor.textView.storageNote !== self.selectedNote
+                || self.selectedNote?.isContentLoaded != true
+            {
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            self.outlineJump(OutlineEntry(level: 1, title: "", bufferLine: line))
         }
     }
 
@@ -385,7 +533,7 @@ final class ShellModel {
             self?.editorDidAppear()
         }
         editor.searchQuery = { [weak self] in
-            self?.searchText ?? ""
+            self?.paletteQuery ?? ""
         }
     }
 
@@ -404,8 +552,7 @@ final class ShellModel {
                 self.scheduleSavedNoteRefresh()
                 return
             }
-            // A search keeps its result order, as in the storyboard list.
-            if self.searchText.isEmpty { self.refreshNotes(keepSelection: true) }
+            self.refreshNotes(keepSelection: true)
         }
     }
 
@@ -792,7 +939,6 @@ final class ShellModel {
     // MARK: - Note commands
 
     /// The list's search field is open; menu search and new-note flows open it.
-    var isSearchOpen = false
     /// The note whose title is being edited. Tied to that note, not to a flag:
     /// a flag was cleared by the selection change that new-note and the
     /// context menu's Rename make just before opening the field, and the
@@ -865,8 +1011,6 @@ final class ShellModel {
     enum FocusTarget {
         case sidebar
         case list
-        /// The list's search field, opened if it is closed.
-        case search
     }
 
     /// A SwiftUI column keyboard commands move focus to; that column takes
@@ -874,20 +1018,6 @@ final class ShellModel {
     var focusRequest: FocusTarget?
     /// A focus request waiting for a hidden column to open.
     @ObservationIgnored private var focusAfterLayout: FocusTarget?
-
-    /// ⌘/, the storyboard window's searchAndCreate: the list comes back if it
-    /// is hidden and the search field takes the keys, also when it is
-    /// already open or holds a query.
-    func focusSearch() {
-        guard !isPresenting else { return }
-        guard layout == .noteOnly else {
-            focusRequest = .search
-            return
-        }
-        isSearchOpen = true
-        focusAfterLayout = .search
-        toggleNav()
-    }
 
     /// The window has finished opening or closing columns.
     func layoutDidSettle() {
@@ -923,8 +1053,6 @@ final class ShellModel {
         let note = Note(name: name, project: project)
         note.content = NSMutableAttributedString(string: content)
         note.save()
-        searchText = ""
-        isSearchOpen = false
         if scope == .trash { scope = .all }
         if editorMode == .preview { editorMode = .edit }
         selectedNoteURL = note.url
@@ -977,23 +1105,20 @@ final class ShellModel {
             if matches.isEmpty {
                 host?.toast(message: I18n.str("No note has this title"), style: .failure)
             } else {
-                search(for: title)
+                openPalette(query: title)
                 host?.toast(message: I18n.str("Several notes share this title. Showing search results"), style: .failure)
             }
             return
         }
         if isPresenting { setPresenting(false) }
-        searchText = ""
-        isSearchOpen = false
         if !notes.contains(where: { $0 === note }) { scope = .all }
         refreshNow(selecting: note.url)
     }
 
-    /// `miaoyan://find/<query>`: the search field opened on that query.
+    /// `miaoyan://find/<query>` and openByTitle's multi-match fallback: the
+    /// palette opens on that query.
     func search(for query: String) {
-        if scope == .trash { scope = .all }
-        isSearchOpen = true
-        searchText = query
+        openPalette(query: query)
     }
 
     /// Moves the selected notes to the Trash, recoverable as everywhere else,
@@ -1209,8 +1334,6 @@ final class ShellModel {
             target = note.url
             existing = nil
         }
-        searchText = ""
-        isSearchOpen = false
         if let existing, existing.url == target, !notes.contains(where: { $0 === existing }) {
             if existing.isTrash() {
                 scope = .trash
@@ -1332,8 +1455,7 @@ final class ShellModel {
 
     private func switchStorage(selecting url: URL?, scope newScope: Scope = .all) {
         if isPresenting { setPresenting(false) }
-        searchText = ""
-        isSearchOpen = false
+        closePalette()
         selectedNoteURL = url
         scope = newScope
         reload()
@@ -1551,37 +1673,6 @@ final class ShellModel {
 
     // MARK: - Search field keys
 
-    /// Return in the search field commits the search: the picked result —
-    /// or the first one when nothing is picked — opens in the editor and the
-    /// search closes, as openByTitle does. Requiring the title to start with
-    /// the query stranded every body match and mid-title match on a dead key
-    /// (audit 2026-11-22).
-    func searchFieldReturn() {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return }
-        if selectedNoteURL == nil || !notes.contains(where: { $0.url == selectedNoteURL }) {
-            selectedNoteURL = notes.first?.url
-        }
-        guard selectedNote != nil else { return }
-        searchText = ""
-        isSearchOpen = false
-        refreshNow(selecting: selectedNoteURL)
-        focusEditor()
-    }
-
-    /// Command-Return makes a note named after the query.
-    func createNoteFromSearch() {
-        createNote(name: searchText.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-
-    /// A query also becomes the system find string, so Command-G finds it in
-    /// other apps and in the editor (SearchTextField.updatePasteboard).
-    private static func writeFindPasteboard(_ text: String) {
-        let pasteboard = NSPasteboard(name: .find)
-        pasteboard.declareTypes([.textFinderOptions, .string], owner: nil)
-        pasteboard.setString(text, forType: .string)
-    }
-
     // MARK: - Columns
 
     /// A divider dragged until the navigation column collapsed, or back
@@ -1669,19 +1760,6 @@ final class ShellModel {
         }
     }
 
-    // MARK: - List
-
-    /// Typing waits a beat so each keystroke does not start a disk scan.
-    private func scheduleRefresh() {
-        refreshTask?.cancel()
-        refreshTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(120))
-            guard !Task.isCancelled, let self else { return }
-            if !self.searchText.isEmpty { Self.writeFindPasteboard(self.searchText) }
-            await self.computeNotes(keepSelection: true)
-        }
-    }
-
     func refreshNotes(keepSelection: Bool) {
         refreshTask?.cancel()
         refreshTask = Task { [weak self] in
@@ -1689,11 +1767,10 @@ final class ShellModel {
         }
     }
 
-    /// What the list was last filled with: a folder's notes, or a search in
-    /// it. The list puts back a folder's scroll place when it returns to it.
+    /// What the list was last filled with. The list puts back a folder's
+    /// scroll place when it returns to it.
     struct ListContent: Equatable {
         let scope: Scope
-        let isSearch: Bool
     }
 
     private(set) var listContent: ListContent?
@@ -1709,42 +1786,14 @@ final class ShellModel {
         }
 
         let scoped = storage.noteList.filter { Self.isInScope($0, projects: projects, type: type) }
-        let terms = searchText.lowercased().split(separator: " ").map(String.init)
+        let ordered = storage.sortNotes(noteList: scoped, filter: "", project: projects.first)
 
-        let ordered: [Note]
-        if terms.isEmpty {
-            ordered = storage.sortNotes(noteList: scoped, filter: "", project: projects.first)
-        } else {
-            let candidates = scoped.enumerated().map { index, note in
-                let title = (note.title.isEmpty ? note.url.deletingPathExtension().lastPathComponent : note.title).lowercased()
-                let needsBody = !terms.allSatisfy { title.contains($0) }
-                return NoteSearchCandidate(
-                    index: index,
-                    title: title,
-                    url: note.url,
-                    loadedText: needsBody && note.isContentLoaded ? note.content.string : nil
-                )
-            }
-            let matches = await Task.detached(priority: .userInitiated) {
-                NoteContentMatcher.match(candidates, terms: terms, limit: 100, isCancelled: { Task.isCancelled })
-            }.value
-            guard !Task.isCancelled else { return }
-            ordered =
-                matches
-                .sorted { first, second in
-                    if first.priority != second.priority { return first.priority > second.priority }
-                    return scoped[first.index].modifiedLocalAt > scoped[second.index].modifiedLocalAt
-                }
-                .map { scoped[$0.index] }
-        }
-
-        guard !Task.isCancelled else { return }
         notes = ordered
         computeNavRows()
         if !(keepSelection && ordered.contains(where: { $0.url == selectedNoteURL })) {
             selectedNoteURL = ordered.first?.url
         }
-        let content = ListContent(scope: listedScope, isSearch: !terms.isEmpty)
+        let content = ListContent(scope: listedScope)
         if listContent != content { listContent = content }
     }
 

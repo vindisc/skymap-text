@@ -426,6 +426,15 @@
 "Find Next" = "查找下一个";
 "Find Previous" = "查找上一个";
 "Jump to Selection" = "跳到所选内容";
+"Search Notes" = "搜索笔记";
+"Search Notes placeholder" = "搜索笔记";
+"Type to search, ⌘⏎ to create" = "输入即搜索，⌘⏎ 新建";
+"No matches" = "没有匹配";
+"↑↓ Browse" = "↑↓ 选择";
+"⏎ Open" = "⏎ 打开";
+"⌘⏎ New Note" = "⌘⏎ 新建";
+"esc Close" = "esc 关闭";
+"Title" = "标题";
 "Search & Create" = "搜索并创建";
 "Copy URL" = "拷贝链接";
 "Copy Path" = "拷贝路径";

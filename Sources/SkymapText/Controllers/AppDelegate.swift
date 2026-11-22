@@ -12,6 +12,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// The SwiftUI main window, opened instead of the storyboard one only
     /// under `-MiaoYanShell YES`.
     var shellWindowController: NSWindowController?
+    /// The search palette, built with the shell window.
+    var paletteWindow: ShellPaletteWindow?
     var prefsWindowController: PrefsWindowController?
     var aboutWindowController: AboutWindowController?
     var openSourceLicensesWindowController: OpenSourceLicensesWindowController?
@@ -123,6 +125,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if CommandLine.arguments.contains("--alert-probe") {
             runAlertLayoutProbe()
         }
+        if CommandLine.arguments.contains("--palette-probe") {
+            runPaletteProbe()
+        }
 
         applyAppearance()
 
@@ -153,6 +158,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             let shell = ShellWindowController()
             shell.showWindow(nil)
             shellWindowController = shell
+            paletteWindow = ShellPaletteWindow(model: shell.model)
             // A file double-clicked in Finder can arrive before the window.
             // So can a link that arrived before it.
             if let url = urls?.first {
@@ -447,7 +453,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if #available(macOS 14, *), let shell = shellWindowController as? ShellWindowController {
             shell.showWindow(nil)
             NSApp.activate(ignoringOtherApps: true)
-            shell.searchAndCreate(sender)
+            shell.searchNotes(sender)
             return
         }
         mainWindowController?.makeNew()
@@ -617,6 +623,36 @@ extension AppDelegate {
             dump("t+0")
             for delay in [0.05, 0.15, 0.4, 1.0] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { dump("t+\(delay)") }
+            }
+        }
+    }
+}
+
+
+// MARK: - Palette probe (temporary scaffolding)
+
+extension AppDelegate {
+    /// Opens the search palette with a sample query and snapshots the panel
+    /// off-screen (cacheDisplay does not need a lit display), for layout
+    /// eyeballing while the console is locked. Launch with `--palette-probe`.
+    func runPaletteProbe() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            self.paletteWindow?.model.openPalette(query: "妙言")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                guard let panel = NSApp.windows.first(where: { $0 is NSPanel && $0.isVisible }),
+                    let content = panel.contentView
+                else {
+                    FileHandle.standardError.write("[palprobe] no visible panel\n".data(using: .utf8)!)
+                    return
+                }
+                content.layoutSubtreeIfNeeded()
+                content.displayIfNeeded()
+                guard let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { return }
+                content.cacheDisplay(in: content.bounds, to: rep)
+                let url = URL(fileURLWithPath: "/tmp/palette-probe.png")
+                try? rep.representation(using: .png, properties: [:])?.write(to: url)
+                FileHandle.standardError.write("[palprobe] wrote \(url.path)\n".data(using: .utf8)!)
+                self.paletteWindow?.model.closePalette()
             }
         }
     }

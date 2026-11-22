@@ -150,9 +150,6 @@ extension ShellModel {
             }
             self.storage.removeBy(project: project)
             self.onFoldersChanged?()
-            // The storyboard sidebar clears the search with the folder.
-            self.searchText = ""
-            self.isSearchOpen = false
             if self.scope == .project(project.url) { self.scope = .all }
             self.reload()
         }

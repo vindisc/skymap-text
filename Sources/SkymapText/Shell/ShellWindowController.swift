@@ -313,7 +313,11 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             || model.preview?.isSearchBarVisible == true
     }
     @IBAction func renameMenu(_ sender: Any?) { model.isRenaming = model.selectedNote != nil }
-    @IBAction func searchAndCreate(_ sender: Any?) { model.focusSearch() }
+    /// ⌘K: the search palette. Also carries the old ⌘/ route so the muscle
+    /// memory from the list-filter days keeps working.
+    @IBAction func searchNotes(_ sender: Any?) {
+        model.openPalette()
+    }
 
     @IBAction func pinMenu(_ sender: Any?) {
         guard let note = model.selectedNote else { return }
@@ -583,7 +587,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
                 && !model.isExporting
         // The storyboard window's canUseMenu: nothing that changes the
         // library or the open note while presenting.
-        case #selector(fileMenuNewNote(_:)), #selector(searchAndCreate(_:)), #selector(singleOpen(_:)),
+        case #selector(fileMenuNewNote(_:)), #selector(searchNotes(_:)), #selector(singleOpen(_:)),
             #selector(importFiles(_:)), #selector(newFolderMenu(_:)), #selector(cleanUnusedAttachments(_:)):
             return !model.isPresenting
         case #selector(moveMenu(_:)):
@@ -780,17 +784,13 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
                 preview.hideSearchBar()
                 return nil
             }
-            if model.isSearchOpen || !model.searchText.isEmpty {
-                model.searchText = ""
-                model.isSearchOpen = false
-                model.focusRequest = .list
-                return nil
-            }
-            // Nothing to cancel: the storyboard window ends in its search
-            // field. It also closes the open note there, which the shell
+            // Nothing to cancel: the storyboard window ended in its search
+            // field. It also closed the open note there, which the shell
             // keeps: its list opens a note again on the next refresh.
-            if !model.isPresenting, (responder as? NSTextView)?.hasMarkedText() != true {
-                model.focusSearch()
+            if !model.isPresenting, model.isPaletteOpen,
+                (responder as? NSTextView)?.hasMarkedText() != true
+            {
+                model.closePalette()
                 return nil
             }
         }
@@ -816,33 +816,6 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     ) -> Bool {
         guard !model.isPresenting, inSearch || inNav else { return false }
         let key = Int(event.keyCode)
-
-        if inSearch {
-            // An input method composing in the field gets Return, the arrows
-            // and Tab first, as SearchTextField does through doCommandBy.
-            if (window?.firstResponder as? NSTextView)?.hasMarkedText() == true { return false }
-            switch key {
-            case kVK_Return, kVK_ANSI_KeypadEnter:
-                if flags == [.command] {
-                    model.createNoteFromSearch()
-                } else if flags.isEmpty {
-                    model.searchFieldReturn()
-                } else {
-                    return false
-                }
-                return true
-            case kVK_DownArrow where flags.isEmpty:
-                model.focusRequest = .list
-                model.selectNext(1)
-                return true
-            case kVK_Tab where flags.isEmpty:
-                guard model.editorMode != .preview else { return false }
-                model.focusEditor()
-                return true
-            default:
-                return false
-            }
-        }
 
         if inNav {
             switch key {
@@ -875,42 +848,15 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             }
         }
 
-        // Typing a letter or digit in the navigation column starts a search with it.
+        // Typing a letter or digit in the navigation column opens the
+        // palette seeded with it, as the old list filter did.
         if flags.isDisjoint(with: [.command, .control]), let typed = event.characters, !typed.isEmpty,
-            CharacterSet(charactersIn: typed).isSubset(of: .alphanumerics), model.layout != .noteOnly
+            CharacterSet(charactersIn: typed).isSubset(of: .alphanumerics)
         {
-            jumpToSearch(with: event)
+            model.openPalette(query: typed)
             return true
         }
         return false
-    }
-
-    /// Keys typed before the search field has focus, replayed into it.
-    private var pendingSearchKeys: [NSEvent] = []
-
-    /// The search field takes the typed key through its input method, as the
-    /// storyboard window hands the field the same event: assigning the
-    /// character skipped the input method, so pinyin started with a stray
-    /// Latin letter. The field's old query is replaced, not appended to.
-    private func jumpToSearch(with event: NSEvent) {
-        pendingSearchKeys.append(event)
-        guard pendingSearchKeys.count == 1 else { return }
-        model.focusRequest = .search
-        Task { @MainActor [weak self] in
-            // Replay as soon as the field has focus, so a key typed after that
-            // cannot land ahead of the ones still waiting here.
-            for _ in 0..<10 {
-                try? await Task.sleep(for: .milliseconds(20))
-                guard let self else { return }
-                if let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .nav { break }
-            }
-            guard let self else { return }
-            let keys = self.pendingSearchKeys
-            self.pendingSearchKeys = []
-            guard let field = self.window?.firstResponder as? NSTextView, self.column(of: field) == .nav else { return }
-            field.selectAll(nil)
-            field.interpretKeyEvents(keys)
-        }
     }
 
     // MARK: - Swipe

@@ -30,7 +30,7 @@ TIERS = [
     ]),
     ("installer", "bash -n and shellcheck, then the installer and `miao update` run once in a scratch prefix, "
                   "helpers defined above their first use", [
-        "scripts/install.sh", "scripts/miaoyan",
+        "scripts/install.sh", "scripts/skybook",
     ]),
     ("notes", "a test red on the old code (.claude/rules/testing.md); a review against the risk areas in .claude/rules: recoverable "
               "Trash, fail-closed saves, buffer ownership; the flow run in the built app", [

@@ -110,7 +110,7 @@ class RiskTierTests(unittest.TestCase):
             "scripts/release-ci/update_appcast.sh": "release",
             "Info.plist": "release",
             "scripts/install.sh": "installer",
-            "scripts/miaoyan": "installer",
+            "scripts/skybook": "installer",
             "Sources/SkymapText/Business/Note.swift": "notes",
             "Sources/SkymapText/Views/EditTextView.swift": "notes",
             "Sources/SkymapText/Business/CloudSyncManager.swift": "sync",

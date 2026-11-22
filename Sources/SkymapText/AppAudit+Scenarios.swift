@@ -324,24 +324,39 @@ func outlineContentWidthStaysWithinBounds(_ ctx: AuditContext) async throws {
     try expect(wide > narrow, "the width follows the content")
 }
 
-/// Return in the search field commits the search: with nothing picked it
-/// opens the first result, and the search closes afterwards. The old guard
-/// required the selected title to START with the query, stranding body and
-/// mid-title matches on a dead key.
+/// The palette: title matches rank first, a body hit carries its line and
+/// snippet, Return opens the picked result and the view lands on the hit
+/// line, ⌘Return with no results makes a note named after the query.
 @MainActor
-func searchReturnOpensTheFirstResult(_ ctx: AuditContext) async throws {
-    _ = await ctx.makeLoadedNote("search-return-a", headings: ["H"])
-    let second = await ctx.makeLoadedNote("search-return-b", headings: ["H"])
+func paletteSearchesCommitsAndCreates(_ ctx: AuditContext) async throws {
+    _ = await ctx.makeLoadedNote("palette-title-a", headings: ["H"])
+    // The needle lives in the note's own content; the note stays cold, so
+    // the matcher exercises its read-the-file path.
+    let body = await ctx.makeColdNote("palette-body-b", headings: ["unique needle"])
     let model = ctx.model
-    model.isSearchOpen = true
-    // "return-b" sits mid-title for both notes - the exact shape the old
-    // prefix guard rejected.
-    model.searchText = "return-b"
-    await ctx.waitUntil { model.notes.count == 1 }
-    try expect(model.notes.first?.url == second.url, "the query lists the matching note")
+    model.openPalette(query: "needle")
+    await ctx.waitUntil { !model.paletteResults.isEmpty }
+    let hit = model.paletteResults.first { $0.url == body.url }
+    try expect(hit != nil, "the body match is in the results")
+    try expect(hit?.hitLine == 0, "the hit reports its line")
+    try expect(hit?.snippet?.contains("needle") == true, "the snippet shows the hit")
+    try expect(!model.paletteResults.contains { $0.title.contains("palette-title-a") },
+        "a note matching neither title nor body stays out")
+    // Commit picks the body hit and lands on its line after the open.
+    model.paletteSelected = model.paletteResults.firstIndex { $0.url == body.url } ?? 0
     model.selectedNoteURL = nil
-    model.searchFieldReturn()
-    try expect(model.selectedNoteURL == second.url, "Return opens the first result")
-    try expect(!model.isSearchOpen, "the search closes on commit")
-    try expect(model.searchText.isEmpty, "the query clears on commit")
+    model.paletteCommit()
+    try expect(model.selectedNoteURL == body.url, "Return opens the picked result")
+    try expect(!model.isPaletteOpen, "the palette closes on commit")
+    // An empty query lists the recently edited notes.
+    model.openPalette()
+    try expect(!model.paletteResults.isEmpty, "an empty query lists recent notes")
+    model.closePalette()
+    // ⌘Return over no results creates a note named after the query.
+    model.openPalette(query: "palette-new-note-zz")
+    await ctx.waitUntil { model.paletteResults.isEmpty }
+    model.paletteCommit(create: true)
+    await ctx.waitUntil { model.notes.contains { $0.url.lastPathComponent.hasPrefix("palette-new-note-zz") } }
+    try expect(model.notes.contains { $0.url.lastPathComponent.hasPrefix("palette-new-note-zz") },
+        "⌘Return names a note after the query")
 }

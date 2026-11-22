@@ -144,7 +144,6 @@ private struct ChromeButton: View {
 struct ShellNav: View {
     @Bindable var model: ShellModel
     @FocusState private var navFocused: Bool
-    @FocusState private var searchFocused: Bool
     @State private var scrollBox = ShellScrollViewBox()
     /// Each scope's scroll place, for this session.
     @State private var scrollOffsets: [ShellModel.Scope: CGFloat] = [:]
@@ -154,32 +153,16 @@ struct ShellNav: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Group {
-                if model.isSearchOpen || !model.searchText.isEmpty {
-                    // The field leads with room for the traffic lights, which
-                    // sit over this column as the leftmost one.
-                    HStack(spacing: 6) {
-                        Spacer().frame(width: ShellStyle.trafficLightsInset - 16)
-                        ShellSearchField(
-                            text: $model.searchText, focused: $searchFocused
-                        ) {
-                            model.searchText = ""
-                            model.isSearchOpen = false
-                            // The field goes away; the rows keep the keys, so
-                            // the arrows and Command-Delete work without a click.
-                            navFocused = true
-                        }
-                        .onAppear { searchFocused = true }
-                        Spacer(minLength: 0)
-                    }
-                } else {
-                    HStack(spacing: 2) {
-                        Spacer()
-                        ChromeButton(image: "addProject", help: "New Folder") { model.promptNewFolder() }
-                        ChromeButton(symbol: "magnifyingglass", help: "Search") { model.isSearchOpen = true }
-                        ChromeButton(image: "icon_sidebar_left", help: "Toggle Navigation") { model.toggleNav() }
-                    }
+            // The search field went with the list-filter model: the palette
+            // (⌘K, or typing in this column) is where a query lives, and the
+            // header keeps only the chrome buttons.
+            HStack(spacing: 2) {
+                Spacer()
+                ChromeButton(image: "addProject", help: "New Folder") { model.promptNewFolder() }
+                ChromeButton(symbol: "magnifyingglass", help: "Search Notes") {
+                    NSApp.sendAction(#selector(ShellWindowController.searchNotes(_:)), to: nil, from: nil)
                 }
+                ChromeButton(image: "icon_sidebar_left", help: "Toggle Navigation") { model.toggleNav() }
             }
             .padding(.horizontal, 10)
             .frame(height: ShellStyle.headerHeight)
@@ -214,13 +197,13 @@ struct ShellNav: View {
                 // The chosen scope's scroll place is kept while another scope
                 // is shown, as the storyboard list kept each folder's.
                 .onChange(of: model.scope) { old, _ in
-                    guard model.listContent == .init(scope: old, isSearch: false),
+                    guard model.listContent == .init(scope: old),
                         let offset = scrollBox.view?.contentView.bounds.origin.y
                     else { return }
                     scrollOffsets[old] = offset
                 }
                 .onChange(of: model.listContent) { old, new in
-                    guard let new, !new.isSearch else { return }
+                    guard let new else { return }
                     // A scope with no remembered place keeps the viewport:
                     // forcing the top made a folder clicked mid-list fly away
                     // (the empty-folder jump, 2026-11-22).
@@ -255,16 +238,6 @@ struct ShellNav: View {
                 switch request {
                 case .list:
                     navFocused = true
-                case .search:
-                    model.isSearchOpen = true
-                    if searchFocused {
-                        // Marked focused while the editor has the keys, or
-                        // set while the column was collapsed: focus again.
-                        searchFocused = false
-                        Task { @MainActor in searchFocused = true }
-                    } else {
-                        searchFocused = true
-                    }
                 default:
                     return
                 }
@@ -644,48 +617,6 @@ private struct ShellNoteRow: View {
     private var title: String {
         let title = note.getTitleWithoutLabel()
         return title.isEmpty ? I18n.str("Untitled Note") : title
-    }
-}
-
-@available(macOS 14, *)
-private struct ShellSearchField: View {
-    @Binding var text: String
-    var focused: FocusState<Bool>.Binding
-    var onSubmit: () -> Void = {}
-    let onClose: () -> Void
-    @State private var clearHovered = false
-
-    var body: some View {
-        let size = CGFloat(UserDefaultsManagement.searchFontSize) + 1
-        HStack(spacing: 6) {
-            SwiftUI.Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(ShellStyle.secondaryText)
-            TextField(I18n.str("Search"), text: $text)
-                .textFieldStyle(.plain)
-                .font(ShellStyle.interface(size))
-                .focused(focused)
-                .onSubmit(onSubmit)
-                .onExitCommand(perform: onClose)
-            // Only with something to clear. A plain image, not a Button:
-            // Tahoe's hover glass tinted it into a blue chip (2026-11-22);
-            // the hover just fills the outline symbol, like the system's own
-            // clear buttons.
-            if !text.isEmpty {
-                SwiftUI.Image(systemName: clearHovered ? "xmark.circle.fill" : "xmark.circle")
-                    .font(.system(size: 11))
-                    .foregroundStyle(clearHovered ? ShellStyle.secondaryText : ShellStyle.tertiaryText)
-                    .contentShape(Rectangle())
-                    .onTapGesture { onClose() }
-                    .onHover { clearHovered = $0 }
-                    .accessibilityLabel(I18n.str("Clear Search"))
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { onClose() }
-            }
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: Theme.Metrics.fieldCornerRadius, style: .continuous).fill(ShellStyle.field))
     }
 }
 

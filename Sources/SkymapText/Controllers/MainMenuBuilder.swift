@@ -113,7 +113,7 @@ enum MainMenuBuilder {
         find.addItem(item(title("Find Next"), action: #selector(ShellWindowController.textFinder(_:)), key: "g"))
         find.addItem(item(title("Find Previous"), action: #selector(ShellWindowController.textFinder(_:)), key: "G"))
         find.addItem(item(title("Jump to Selection"), action: Selector(("centerSelectionInVisibleArea:")), key: "j", modifiers: [.command, .option]))
-        find.addItem(item(title("Search & Create"), action: #selector(ShellWindowController.searchAndCreate(_:)), key: "/"))
+        find.addItem(item(title("Search Notes"), action: #selector(ShellWindowController.searchNotes(_:)), key: "k"))
         edit.addItem(findMenuItem)
 
         edit.addItem(.separator())
