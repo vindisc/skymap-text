@@ -237,6 +237,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         return true
     }
 
+    /// 视图菜单的外观快捷切换：写偏好、立即应用；shell 窗口的
+    /// effectiveAppearance 观察器会把新观感传播给编辑器与预览。
+    @objc func changeAppearance(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? Int, let type = AppearanceType(rawValue: raw) else { return }
+        UserDefaultsManagement.appearanceType = type
+        applyAppearance()
+    }
+
     func applyAppearance() {
         if UserDefaultsManagement.appearanceType != .Custom {
             var targetAppearance: NSAppearance?

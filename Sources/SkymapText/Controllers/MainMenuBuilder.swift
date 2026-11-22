@@ -35,7 +35,7 @@ enum MainMenuBuilder {
 
         let appMenuItem = NSMenuItem()
         main.addItem(appMenuItem)
-        let app = NSMenu(title: "SkymapText")
+        let app = NSMenu(title: "SkyBook")
         appMenuItem.submenu = app
 
         app.addItem(item(title("About"), action: #selector(AppDelegate.showAboutWindow(_:))))
@@ -45,11 +45,11 @@ enum MainMenuBuilder {
             app.addItem(item(title("Check for Updates…"), action: #selector(AppDelegate.checkForUpdates(_:))))
         }
         app.addItem(.separator())
-        app.addItem(item(title("Hide SkymapText"), action: #selector(NSApplication.hide(_:)), key: "h"))
+        app.addItem(item(title("Hide SkyBook"), action: #selector(NSApplication.hide(_:)), key: "h"))
         app.addItem(item(title("Hide Others"), action: #selector(NSApplication.hideOtherApplications(_:)), key: "h", modifiers: [.command, .option]))
         app.addItem(item(title("Show All"), action: #selector(NSApplication.unhideAllApplications(_:))))
         app.addItem(.separator())
-        app.addItem(item(title("Quit SkymapText"), action: #selector(AppDelegate.quiteApp(_:)), key: "q"))
+        app.addItem(item(title("Quit SkyBook"), action: #selector(AppDelegate.quiteApp(_:)), key: "q"))
 
         // MARK: File menu
 
@@ -199,6 +199,17 @@ enum MainMenuBuilder {
         view.addItem(.separator())
         view.addItem(item(title("Always On Top"), action: #selector(AppDelegate.toggleAlwaysOnTop(_:)), key: "t", modifiers: [.command, .option]))
         view.addItem(item(title("Enter Full Screen"), action: #selector(NSWindow.toggleFullScreen(_:)), key: "f", modifiers: [.command, .control]))
+        view.addItem(.separator())
+
+        // 外观快捷切换：跟随系统 / 浅色 / 深色，勾选态由 validateMenuItem 维护。
+        let appearanceMenuItem = NSMenuItem(title: title("Appearance"), action: nil, keyEquivalent: "")
+        let appearance = NSMenu(title: title("Appearance"))
+        appearanceMenuItem.submenu = appearance
+        appearance.addItem(item(title("Follow System"), action: #selector(AppDelegate.changeAppearance(_:)), identifier: "ap.system"))
+        appearance.addItem(item(title("Light"), action: #selector(AppDelegate.changeAppearance(_:)), identifier: "ap.light"))
+        appearance.addItem(item("Dark", action: #selector(AppDelegate.changeAppearance(_:)), identifier: "ap.dark"))
+        view.addItem(appearanceMenuItem)
+        view.addItem(.separator())
 
         // MARK: Window menu
 

@@ -1,15 +1,15 @@
-# SkymapText Agent Guide (branch `spm`)
+# SkyBook Agent Guide (branch `spm`)
 
 > This branch is a pure-SwiftPM restructure of MiaoYan's Mac app, rebranded
-> **SkymapText**. It builds and runs **without Xcode** (Command Line Tools
+> **SkyBook**. It builds and runs **without Xcode** (Command Line Tools
 > only). The storyboard project, the three-column window, the split /
 > presentation / PPT modes and the upstream product story live on `main` and
 > upstream — do not follow the main-branch docs when working here.
 
 ## Project
 
-SkymapText is a lightweight Markdown notes app for macOS. The whole app is
-one SwiftPM executable target (`SkymapText`, sources under
+SkyBook is a lightweight Markdown notes app for macOS. The whole app is
+one SwiftPM executable target (`SkyBook`, sources under
 `Sources/SkymapText/`), window built programmatically:
 
 - `Shell/` — the entire UI: `ShellWindowController` (AppKit
@@ -37,7 +37,7 @@ one SwiftPM executable target (`SkymapText`, sources under
 ```bash
 swift build -c debug|release        # compile (CLT only; no Xcode needed)
 bash scripts/run_app.sh release     # rebuild + repackage + relaunch the app
-bash scripts/make_app.sh release    # assemble .build/SkymapText.app (Info.plist,
+bash scripts/make_app.sh release    # assemble .build/SkyBook.app (Info.plist,
                                     #   frameworks, resources, ad-hoc sign)
 bash scripts/package_app.sh         # ditto-zip into dist/
 bash scripts/selfcheck.sh           # build + audit scenarios + python gates
@@ -55,7 +55,7 @@ behaviors — outline refresh timing (note switch, cold-note async fill,
 rendered-mode page load), merged nav rows, empty-folder hint, mixed arrow
 navigation, the two-state editor toggle with persistence, the preview reuse
 gate, and pending-rename commit on create. Run them through
-`bash scripts/selfcheck.sh` (or `.build/debug/SkymapText --audit`); the exit
+`bash scripts/selfcheck.sh` (or `.build/debug/SkyBook --audit`); the exit
 code carries the verdict. **Every bug fix on this branch lands with a
 scenario in AppAudit.swift**, and selfcheck.sh runs after every change.
 `MiaoYanTests/` and the XCTest suites are main-branch assets.

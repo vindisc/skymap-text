@@ -7,6 +7,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODE="${1:-debug}"
 
-pkill -x SkymapText 2>/dev/null || true
+pkill -x SkyBook 2>/dev/null || true
 APP_PATH="$("$ROOT_DIR/scripts/make_app.sh" "$MODE" | tail -n 1)"
 open -n "$APP_PATH"

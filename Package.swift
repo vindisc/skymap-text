@@ -4,11 +4,11 @@ import PackageDescription
 // SPM restructure (branch `spm`): the app builds as a plain SwiftPM
 // executable; the storyboard project lives on `main` only.
 let package = Package(
-    name: "SkymapText",
+    name: "SkyBook",
     defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "SkymapText", targets: ["SkymapText"])
+        .executable(name: "SkyBook", targets: ["SkyBook"])
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.8.0"),
@@ -23,7 +23,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "SkymapText",
+            name: "SkyBook",
             dependencies: [
                 "MiaoYanCore",
                 .product(name: "Sparkle", package: "Sparkle"),

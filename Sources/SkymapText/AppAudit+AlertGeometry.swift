@@ -1,5 +1,5 @@
 import AppKit
-import SkymapText
+import SkyBook
 
 /// Dumps the new-folder alert's geometry: which view makes the sheet tall.
 @MainActor

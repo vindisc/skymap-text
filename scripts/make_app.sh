@@ -1,13 +1,13 @@
 #!/bin/zsh
 set -euo pipefail
 
-# Assembles a runnable SkymapText.app from the SwiftPM build, mirroring the
+# Assembles a runnable SkyBook.app from the SwiftPM build, mirroring the
 # skymap-mac packaging recipe. The storyboard project on `main` does not use
 # this script. MODE=debug|release (default release).
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODE="${1:-release}"
-APP_NAME="SkymapText"
+APP_NAME="SkyBook"
 APP_DIR="$ROOT_DIR/.build/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -63,7 +63,7 @@ cp "$ROOT_DIR/THIRD-PARTY-NOTICES.md" "$RESOURCES_DIR/THIRD-PARTY-NOTICES.md"
 # Localization: every lproj keeps its strings tables (Main.strings included
 # so the programmatic menu can localize its titles). InfoPlist.strings is
 # dropped: upstream it overrides CFBundleDisplayName back to 妙言, which the
-# SkymapText brand must not inherit.
+# SkyBook brand must not inherit.
 for lproj in "$ROOT_DIR"/Resources/Localization/*.lproj(N); do
   [[ -e "$lproj" ]] || continue
   cp -R "$lproj" "$RESOURCES_DIR/$(basename "$lproj")"
@@ -92,7 +92,7 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
 <dict>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleIdentifier</key><string>local.skymaptext</string>
+  <key>CFBundleIdentifier</key><string>local.skybook</string>
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>

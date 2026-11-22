@@ -14,7 +14,7 @@ echo "== swift build (debug) =="
 swift build || FAILED=1
 
 echo "== audit scenarios (--audit, headless) =="
-.build/debug/SkymapText --audit || FAILED=1
+.build/debug/SkyBook --audit || FAILED=1
 
 if command -v swiftlint >/dev/null 2>&1; then
   echo "== swiftlint =="

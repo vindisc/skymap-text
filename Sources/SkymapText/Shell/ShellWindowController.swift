@@ -32,7 +32,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // and VoiceOver; the title bar still draws none.
         window.title = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String
-            ?? "SkymapText"
+            ?? "SkyBook"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -535,6 +535,16 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
             // Command-5 during a deck would slide the column over the slides.
             menuItem.state = model.isOutlineVisible ? .on : .off
             return !model.isPresenting
+        case #selector(AppDelegate.changeAppearance(_:)):
+            // 外观子菜单的勾选态：跟随系统/浅色/深色按 rawValue 匹配。
+            let appearanceRaw = UserDefaultsManagement.appearanceType.rawValue
+            let expected = switch appearanceRaw {
+            case 1: "ap.light"
+            case 2: "ap.dark"
+            default: "ap.system"
+            }
+            menuItem.state = menuItem.identifier?.rawValue == expected ? .on : .off
+            return true
         case #selector(togglePresentation(_:)):
             // Command-4 also leaves a PPT deck, as in the storyboard window.
             menuItem.state = model.isPresenting && !model.isPPT ? .on : .off

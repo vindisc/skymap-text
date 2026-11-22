@@ -1,4 +1,4 @@
-> **Fork 说明：** 本仓库的 `spm` 分支构建 **SkymapText**——基于妙言的纯
+> **Fork 说明：** 本仓库的 `spm` 分支构建 **SkyBook**——基于妙言的纯
 > SwiftPM 两栏重构（导航合栏 + 大纲栏 + ⌘E 双态编辑）。从源码构建：
 > `swift build -c release`，然后 `bash scripts/make_app.sh release`
 >（需要 macOS 14+；仅需 Command Line Tools，无需 Xcode）。以下产品介绍

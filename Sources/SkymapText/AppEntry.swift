@@ -9,8 +9,19 @@ import AppKit
 // file makes the target impossible to import, and the --audit self-checks in
 // AppAudit.swift run inside this module with full internal access.
 @main
-struct SkymapTextApp {
+struct SkyBookApp {
     static func main() async {
+        // One-time defaults migration: the SkyBook rebrand changed the bundle
+        // identifier, and the user's library pointer (storageUrl) lives in
+        // the old SkymapText domain. Carry the whole domain over once.
+        let newDomain = Bundle.main.bundleIdentifier ?? "local.skybook"
+        if UserDefaults.standard.persistentDomain(forName: newDomain)?["storageUrl"] == nil,
+            let old = UserDefaults.standard.persistentDomain(forName: "local.skymaptext"),
+            old["storageUrl"] != nil
+        {
+            UserDefaults.standard.setPersistentDomain(old, forName: newDomain)
+        }
+
         // `--audit` runs the headless self-checks and exits with the verdict;
         // scripts/selfcheck.sh consumes it. The app never reaches its event
         // loop in this mode.

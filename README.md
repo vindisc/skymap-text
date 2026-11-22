@@ -1,4 +1,4 @@
-> **Fork note:** this repository's `spm` branch builds **SkymapText** — a
+> **Fork note:** this repository's `spm` branch builds **SkyBook** — a
 > pure-SwiftPM two-pane restructure of MiaoYan (merged navigation column,
 > outline column, Command-E two-state editor). Build from source:
 > `swift build -c release`, then `bash scripts/make_app.sh release`

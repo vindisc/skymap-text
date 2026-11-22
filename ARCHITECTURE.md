@@ -1,7 +1,7 @@
 # MiaoYan Architecture
 
 > **Branch note (`spm`):** this branch is a pure-SwiftPM app named
-> **SkymapText** — one executable target under `Sources/SkymapText/`, the
+> **SkyBook** — one executable target under `Sources/SkymapText/`, the
 > shell window is the whole app, there is no storyboard at runtime, and
 > packaging is `scripts/make_app.sh` (see `AGENTS.md`). Everything below
 > about the storyboard window, the three-column layout, MiaoYan-Pro and the

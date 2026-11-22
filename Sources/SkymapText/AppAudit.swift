@@ -21,7 +21,7 @@ final class AuditContext {
 
     private init() {
         let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SkymapTextAudit-\(UUID().uuidString)")
+            .appendingPathComponent("SkyBookAudit-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         UserDefaultsManagement.storagePath = tmp.path
         model = ShellModel()
@@ -244,7 +244,7 @@ enum AppAudit {
         ("persistence.scopeLayoutAndOutlineVisibility", scopeLayoutAndOutlineVisibilityPersistAcrossReinit),
         ("debug.alertSheetGeometry", alertSheetGeometry),
     ]
-    print("SkymapText audit: \(tests.count) scenarios")
+    print("SkyBook audit: \(tests.count) scenarios")
     var failures = 0
     for (name, test) in tests {
         do {

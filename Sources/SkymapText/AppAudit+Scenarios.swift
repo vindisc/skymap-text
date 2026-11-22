@@ -1,5 +1,5 @@
 import Foundation
-import SkymapText
+import SkyBook
 
 // MARK: - Outline parsing (QA batch)
 
