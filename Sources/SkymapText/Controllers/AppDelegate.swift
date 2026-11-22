@@ -133,6 +133,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             UserDefaultsManagement.preview = true
         }
 
+        // The headless UI-script harness (scripts/ui_script.py): launch args
+        // -SkyBookScript/-SkyBookShots plus a scratch -storageUrl.
+        UIScript.startIfRequested()
+
         addGlobalKeyboardMonitor()
         if UserDefaultsManagement.storagePath == nil {
             requestStorageDirectory()
