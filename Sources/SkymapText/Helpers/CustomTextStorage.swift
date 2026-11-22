@@ -13,7 +13,12 @@ extension NSTextStorage: @retroactive @preconcurrency NSTextStorageDelegate {
 
     @MainActor private func process(textStorage: NSTextStorage, range editedRange: NSRange, changeInLength delta: Int) {
         guard let note = EditTextView.note, note.isMarkdown() else { return }
-        guard editedRange.length != textStorage.length || EditTextView.shouldForceRescan else { return }
+        // The first character typed into an empty note has
+        // editedRange.length == textStorage.length == 1 and looked like a
+        // no-op whole-buffer rewrite; highlight it like any other edit.
+        guard editedRange.length != textStorage.length || textStorage.length <= 1
+            || EditTextView.shouldForceRescan
+        else { return }
 
         let isInitialLoad = editedRange.length == textStorage.length && EditTextView.shouldForceRescan
 

@@ -515,6 +515,10 @@ final class ShellEditorController: NSObject, NSTextViewDelegate {
     /// storyboard window (its file-watcher pause).
     func textDidChange(_ notification: Notification) {
         guard let note = EditTextView.note else { return }
+        // Marked text is an input method's composition, not the note's text:
+        // saving it wrote pinyin to disk and rebuilt the outline from it
+        // while the reader was still choosing characters.
+        guard !textView.hasMarkedText() else { return }
         // The buffer must belong to the note being saved (#543).
         guard textView.storageNote === note else {
             let mismatch = NSError(

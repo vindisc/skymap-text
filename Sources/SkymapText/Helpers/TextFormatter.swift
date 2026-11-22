@@ -115,8 +115,9 @@ public class TextFormatter {
             lines.append(padding + newLine)
         }
 
-        var result = lines.joined(separator: "\n")
-        if pRange.upperBound != storage.length { result += "\n" }
+        let lineBreak = ListContinuation.lineBreak(in: storage.string as NSString)
+        var result = lines.joined(separator: lineBreak)
+        if pRange.upperBound != storage.length { result += lineBreak }
 
         if textView.textStorage?.length == 0 { EditTextView.shouldForceRescan = true }
 
@@ -138,7 +139,9 @@ public class TextFormatter {
                 replacement = processedText
             }
             textView.insertText(replacement, replacementRange: pRange)
-            setSelectedRange(NSRange(location: range.location - diff, length: 0))
+            // Shift-Tab with the caret at column 0 must not send a negative
+            // location to NSTextView (it arrives as a huge unsigned value).
+            setSelectedRange(NSRange(location: max(0, range.location - diff), length: 0))
             return
         }
 
@@ -155,8 +158,9 @@ public class TextFormatter {
             resultList.append(processedLine)
         }
 
-        var result = resultList.joined(separator: "\n")
-        if pRange.upperBound != storage.length { result += "\n" }
+        let lineBreak = ListContinuation.lineBreak(in: storage.string as NSString)
+        var result = resultList.joined(separator: lineBreak)
+        if pRange.upperBound != storage.length { result += lineBreak }
         textView.insertText(result, replacementRange: pRange)
         let finalRange = NSRange(location: pRange.lowerBound, length: (result as NSString).length)
         setSelectedRange(finalRange)
@@ -210,7 +214,11 @@ public class TextFormatter {
         let string = storage.attributedSubstring(from: currentParagraphRange).string
 
         guard let box = Self.taskBoxRange(in: string) else {
+            // The marker lands at the line start, before the caret: move the
+            // caret past it in the same edit so typing continues the task.
+            let selection = textView.selectedRange
             insertText("- [ ] ", replacementRange: NSRange(location: currentParagraphRange.location, length: 0))
+            setSelectedRange(NSRange(location: selection.location + 6, length: selection.length))
             return
         }
         let mark = (string as NSString).substring(with: box) == " " ? "x" : " "
@@ -346,7 +354,7 @@ public class TextFormatter {
             var lines = [String]()
             string.enumerateLines { line, _ in lines.append("> " + line) }
 
-            let result = lines.joined(separator: "\n")
+            let result = lines.joined(separator: ListContinuation.lineBreak(in: storage.string as NSString))
             insertText(result, replacementRange: pRange)
             return
         }
