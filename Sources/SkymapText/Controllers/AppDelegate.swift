@@ -139,8 +139,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
 
         // The headless UI-script harness (scripts/ui_script.py): launch args
-        // -SkyBookScript/-SkyBookShots plus a scratch -storageUrl.
-        UIScript.startIfRequested()
+        // -SkyBookScript/-SkyBookShots plus a scratch -storageUrl. Debug
+        // builds only - UIScript.swift does not exist in Release.
+        #if DEBUG
+            UIScript.startIfRequested()
+        #endif
 
         addGlobalKeyboardMonitor()
         if UserDefaultsManagement.storagePath == nil {
