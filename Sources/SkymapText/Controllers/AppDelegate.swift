@@ -120,6 +120,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         configureSystemLogging()
         NSFontManager.shared.fontPanel(false)?.orderOut(self)
 
+        if CommandLine.arguments.contains("--alert-probe") {
+            runAlertLayoutProbe()
+        }
+
         applyAppearance()
 
         addGlobalKeyboardMonitor()
@@ -549,6 +553,60 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             // window on main.
 
             return event
+        }
+    }
+}
+
+// MARK: - Alert layout probe (temporary scaffolding)
+
+extension AppDelegate {
+    /// Presents the real new-folder alert on the real main window and dumps
+    /// the sheet's settled geometry at timed points, for layout surgery work.
+    /// Launch with `--alert-probe`; the sheet stays up for eyeballing.
+    func runAlertLayoutProbe() {
+        FileHandle.standardError.write("[probe] armed\n".data(using: .utf8)!)
+        func dump(_ tag: String) {
+            guard let window = NSApp.mainWindow ?? NSApp.keyWindow,
+                let content = window.contentView
+            else {
+                FileHandle.standardError.write("[probe] \(tag): no window\n".data(using: .utf8)!)
+                return
+            }
+            FileHandle.standardError.write(
+                ("[probe] \(tag) window=\(window.frame) sheet=\(window.attachedSheet?.frame ?? .zero)\n")
+                    .data(using: .utf8)!)
+            if let sheet = window.attachedSheet, let sheetContent = sheet.contentView {
+                FileHandle.standardError.write(
+                    ("[probe] \(tag) sheetContent=\(sheetContent.frame)\n").data(using: .utf8)!)
+                for view in sheetContent.subviews {
+                    FileHandle.standardError.write(
+                        ("[probe]   \(String(describing: type(of: view))) frame=\(view.frame) hidden=\(view.isHidden)\n")
+                            .data(using: .utf8)!)
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            FileHandle.standardError.write(
+                ("[probe] fire windows=\(NSApp.windows.map { "\(type(of: $0)) visible=\($0.isVisible) main=\($0.isMainWindow) key=\($0.isKeyWindow)" })\n")
+                    .data(using: .utf8)!)
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 26))
+            field.focusRingType = .none
+            field.placeholderString = "文件夹名称"
+            let alert = MiaoYanAlert.make(
+                message: "新建文件夹", style: .informational, buttons: ["添加", "取消"])
+            alert.accessoryView = field
+            MiaoYanAlert.style(alert)
+            guard let window = NSApp.mainWindow ?? NSApp.keyWindow
+                ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) })
+            else {
+                FileHandle.standardError.write("[probe] no host window\n".data(using: .utf8)!)
+                return
+            }
+            alert.beginSheetModal(for: window, completionHandler: { _ in })
+            dump("t+0")
+            for delay in [0.05, 0.15, 0.4, 1.0] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { dump("t+\(delay)") }
+            }
         }
     }
 }
