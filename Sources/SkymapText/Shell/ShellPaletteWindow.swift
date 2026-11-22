@@ -19,6 +19,11 @@ final class ShellPaletteWindow {
     private let panel: NSPanel
     let model: ShellModel
     private var thermal: Any?
+    /// NSWindow.delegate is weak: without this reference the close path
+    /// would outlive its own delegate and never fire.
+    private let closeDelegate: SelfDelegate
+    private var keyMonitor: Any?
+    private var clickMonitor: Any?
 
     init(model: ShellModel) {
         self.model = model
@@ -30,6 +35,7 @@ final class ShellPaletteWindow {
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 320),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
+        closeDelegate = SelfDelegate(model: model)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -38,7 +44,7 @@ final class ShellPaletteWindow {
         panel.hidesOnDeactivate = false
         panel.level = .floating
         panel.collectionBehavior = [.fullScreenAuxiliary]
-        panel.delegate = SelfDelegate(model: model)
+        panel.delegate = closeDelegate
 
         let hosting = NSHostingView(rootView: ShellPaletteSheet(model: model, onClose: { [weak self] in
             self?.model.closePalette()
@@ -46,6 +52,39 @@ final class ShellPaletteWindow {
         panel.contentView = hosting
         hosting.sizingOptions = [.preferredContentSize]
         observeModel()
+        // The field editor swallows the arrows before performKeyEquivalent
+        // ever runs, so the panel tracks them itself, and a click anywhere
+        // else is Spotlight's close gesture.
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.panel.isVisible, event.window === self.panel else { return event }
+            return self.handlePaletteKey(event)
+        }
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self, self.panel.isVisible, event.window !== self.panel else { return event }
+            self.model.closePalette()
+            return event
+        }
+    }
+
+    private func handlePaletteKey(_ event: NSEvent) -> NSEvent? {
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        switch Int(event.keyCode) {
+        case kVK_UpArrow where flags.isEmpty:
+            model.paletteMove(-1)
+            return nil
+        case kVK_DownArrow where flags.isEmpty:
+            model.paletteMove(1)
+            return nil
+        case kVK_Return where flags == [.command],
+             kVK_ANSI_KeypadEnter where flags == [.command]:
+            model.paletteCommit(create: true)
+            return nil
+        case kVK_Escape:
+            model.closePalette()
+            return nil
+        default:
+            return event
+        }
     }
 
     /// The model's flag is the one source of truth: every entry point (the
@@ -61,6 +100,8 @@ final class ShellPaletteWindow {
         if open {
             positionOverShell()
             panel.orderFrontRegardless()
+            // A nonactivating panel can become key, but only when asked.
+            panel.makeKey()
             if let shell = panel.parent ?? NSApp.mainWindow {
                 shell.addChildWindow(panel, ordered: .above)
             }

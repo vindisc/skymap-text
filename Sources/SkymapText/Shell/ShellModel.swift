@@ -280,6 +280,10 @@ final class ShellModel {
     var paletteQuery = "" {
         didSet {
             guard paletteQuery != oldValue else { return }
+            // A query's results belong to that query: Return during the
+            // debounce must not open the previous query's row.
+            paletteResults = []
+            paletteSelected = 0
             schedulePaletteSearch()
         }
     }
@@ -337,7 +341,8 @@ final class ShellModel {
             }
             return
         }
-        let candidates = storage.noteList.filter { !$0.isTrash() }.enumerated().map { index, note in
+        let libraryNotes = storage.noteList.filter { !$0.isTrash() }
+        let candidates = libraryNotes.enumerated().map { index, note in
             NoteSearchCandidate(
                 index: index,
                 title: (note.title.isEmpty ? note.url.deletingPathExtension().lastPathComponent : note.title).lowercased(),
@@ -351,10 +356,13 @@ final class ShellModel {
             }.value
             guard !Task.isCancelled, let self else { return }
             guard self.paletteQuery == generation else { return }
-            let notes = self.storage.noteList
-            let modified = Dictionary(uniqueKeysWithValues: notes.map { ($0.url, $0.modifiedLocalAt) })
-            let results = matches.map { match -> PaletteResult in
-                let note = notes[match.index]
+            // Indices point into the snapshot the candidates were built from,
+            // not into a list the watcher may have changed meanwhile.
+            var modified: [URL: Date] = [:]
+            for note in libraryNotes { modified[note.url] = note.modifiedLocalAt }
+            let results = matches.compactMap { match -> PaletteResult? in
+                guard match.index >= 0, match.index < libraryNotes.count else { return nil }
+                let note = libraryNotes[match.index]
                 return PaletteResult(
                     url: note.url, title: note.title, folder: self.folderName(of: note.url),
                     priority: match.priority, snippet: match.snippet, hitLine: match.hitLine)
@@ -392,9 +400,15 @@ final class ShellModel {
         }
         let result = paletteResults[min(paletteSelected, paletteResults.count - 1)]
         let line = result.hitLine
+        // The palette searches the whole library; a hit from another folder
+        // must widen the scope, or selectedNote (which reads the scoped list)
+        // never finds it and the pane goes blank, then jumps to the first row.
+        let widened = !notes.contains { $0.url == result.url }
+        if widened { scope = .all }
         selectedNoteURL = result.url
         closePalette()
         if editorMode == .preview { editorMode = .edit }
+        if widened { refreshNow(selecting: result.url) }
         jumpAfterOpen(line: line)
     }
 
@@ -409,6 +423,10 @@ final class ShellModel {
             {
                 try? await Task.sleep(for: .milliseconds(20))
             }
+            // The wait can time out with another note in the buffer (or the
+            // note still cold); jumping then moves a note the palette never
+            // picked.
+            guard self.editor.textView.storageNote === self.selectedNote else { return }
             self.outlineJump(OutlineEntry(level: 1, title: "", bufferLine: line))
         }
     }
@@ -704,7 +722,7 @@ final class ShellModel {
 
     /// The list's heading: the chosen folder's name.
     var scopeTitle: String {
-        // The brand row already says MiaoYan beside the list.
+        // The scope's heading: All Notes, or the chosen folder's own name.
         if scope == .all { return I18n.str("All Notes") }
         return sidebarRows.first { $0.id == scope }?.title ?? ""
     }
@@ -819,15 +837,17 @@ final class ShellModel {
             }
             // The cached-view path fires during makeNSView, before SwiftUI
             // attaches the view to a window; a first responder request made
-            // then no-ops. Retry once the view is attached.
-            func takeKeys(attempt: Int) {
-                if view.window != nil {
-                    view.window?.makeFirstResponder(view)
-                } else if attempt < 5 {
-                    DispatchQueue.main.async { takeKeys(attempt: attempt + 1) }
+            // then no-ops. Retry on the main actor once the view is attached.
+            Task { @MainActor [weak view] in
+                guard let view else { return }
+                for _ in 0..<5 {
+                    if let window = view.window {
+                        window.makeFirstResponder(view)
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(16))
                 }
             }
-            takeKeys(attempt: 0)
         }
     }
 
@@ -1244,7 +1264,11 @@ final class ShellModel {
     @discardableResult
     func rename(_ note: Note, to title: String) -> Bool {
         let title = title.trimmingCharacters(in: .newlines)
-        guard !title.trimmingCharacters(in: .whitespaces).isEmpty, title != note.getFileName() else { return true }
+        let fileName = Note.sanitizedFileName(title)
+        // The file name a title maps to is the one a rename would produce; a
+        // colon title whose dash name is already the file's is no change, not
+        // a collision with itself.
+        guard !fileName.isEmpty, fileName != note.url.deletingPathExtension().lastPathComponent else { return true }
         // A rename committed because another note was clicked keeps that
         // note selected.
         let wasSelected = selectedNoteURL == note.url
@@ -1326,7 +1350,10 @@ final class ShellModel {
                 existing = note
                 continue
             }
-            let copy = ViewController.copyFile(url, into: project ?? storage.getMainProject())
+            guard let copy = ViewController.copyFile(url, into: project ?? storage.getMainProject()) else {
+                host?.toast(message: I18n.str("Couldn't import the file"), style: .failure)
+                continue
+            }
             guard storage.getBy(url: copy) == nil, let note = storage.initNote(url: copy) else { continue }
             note.load()
             note.loadModifiedLocalAt()
@@ -1393,7 +1420,7 @@ final class ShellModel {
         folder.create()
         _ = storage.add(project: folder)
         for item in storage.readDirectory(url) {
-            let copy = ViewController.copyFile(item.url, into: folder)
+            guard let copy = ViewController.copyFile(item.url, into: folder) else { continue }
             guard storage.getBy(url: copy) == nil, let note = storage.initNote(url: copy) else { continue }
             note.load()
             note.loadModifiedLocalAt()
@@ -1746,8 +1773,6 @@ final class ShellModel {
             switch navRows[next].kind {
             case .folder, .note:
                 break rowLoop
-            default:
-                return
             }
         } while true
         switch navRows[next].kind {
@@ -1755,8 +1780,6 @@ final class ShellModel {
             scope = row.id
         case .note(let note, _):
             selectedNoteURL = note.url
-        default:
-            return
         }
     }
 
@@ -1829,7 +1852,6 @@ final class ShellModel {
         // outline must follow the selection the instant it changes.
         guard isOutlineVisible, let url = selectedNoteURL, let note = storage.getBy(url: url) else {
             if !outline.isEmpty { outline = [] }
-            print("   [diag] refreshOutline early-return: visible=\(isOutlineVisible) url=\(selectedNoteURL?.path ?? "nil") notesCount=\(notes.count) storageHas=\(storage.getBy(url: selectedNoteURL ?? URL(fileURLWithPath: "/")) != nil)")
             return
         }
         let text: String
@@ -1838,7 +1860,6 @@ final class ShellModel {
         } else {
             guard note.isContentLoaded, !note.loadFailed else {
                 if !outline.isEmpty { outline = [] }
-                print("   [diag] refreshOutline cold: note=\(note.url.lastPathComponent) loaded=\(note.isContentLoaded)")
                 return
             }
             text = note.content.string
@@ -1880,7 +1901,6 @@ final class ShellModel {
             outline = entries
             outlineSelectedBufferLine = nil
         }
-        print("   [diag] entries=\(entries.map(\.title)) loaded=\(note.isContentLoaded) bufferIsNote=\(editor.textView.storageNote === note) note=\(note.url.lastPathComponent) visible=\(isOutlineVisible)")
         updateOutlineSelectionFromViewport()
     }
 
@@ -1917,8 +1937,11 @@ final class ShellModel {
     /// same conversion the split sync uses back into buffer lines.
     func previewDidScroll(line: CGFloat) {
         // A queued scroll from the hidden cached view must not rewrite the
-        // highlight once the editor is back.
-        guard editorMode == .preview, isOutlineVisible, !outline.isEmpty else { return }
+        // highlight once the editor is back — nor may the page still showing
+        // the previous note do it during a switch.
+        guard editorMode == .preview, isOutlineVisible, !outline.isEmpty,
+            preview?.displayedNote === selectedNote
+        else { return }
         let frontmatterLines = editor.textView.storageNote === selectedNote ? editor.frontmatterLines : 0
         let (bufferLine, _) = ShellSplitMath.bufferLine(forPreviewLine: line, frontmatterLines: frontmatterLines)
         updateOutlineSelection(topBufferLine: bufferLine)

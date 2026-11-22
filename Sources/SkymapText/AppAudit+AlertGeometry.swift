@@ -1,5 +1,4 @@
 import AppKit
-import SkyBook
 
 /// The input sheets keep the bird and the title on one row: after style()
 /// the sheet reclaims the title band and the title frame sits beside the

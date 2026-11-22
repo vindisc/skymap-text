@@ -244,6 +244,9 @@ enum AppAudit {
         ("persistence.scopeLayoutAndOutlineVisibility", scopeLayoutAndOutlineVisibilityPersistAcrossReinit),
         ("outline.contentWidthStaysWithinBounds", outlineContentWidthStaysWithinBounds),
         ("palette.searchesCommitsAndCreates", paletteSearchesCommitsAndCreates),
+        ("palette.seedsLeftToTheRenameField", seedsPaletteLeavesFolderRenamingAlone),
+        ("palette.widensScopeForAHitOutsideIt", paletteWidensScopeForAHitOutsideIt),
+        ("palette.clearsStaleResultsOnQueryChange", paletteClearsStaleResultsWhenTheQueryChanges),
         ("debug.alertSheetGeometry", alertSheetGeometry),
     ]
     print("SkyBook audit: \(tests.count) scenarios")

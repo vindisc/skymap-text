@@ -1210,17 +1210,23 @@ public class Note: NSObject {
         return title.utf8.count + extBytes <= maxFileNameBytes
     }
 
+    /// The bare file name a title maps to: `:` becomes `-` and `/` becomes
+    /// Finder's `:`, the same substitution a rename applies. Shared so a
+    /// rename can tell "this is already the file's name" from a collision.
+    nonisolated static func sanitizedFileName(_ title: String) -> String {
+        title
+            .trimmingCharacters(in: CharacterSet.whitespaces)
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "/", with: ":")
+    }
+
     /// Renames the file after `title`, as the title bar does: `:` becomes
     /// `-` and `/` becomes Finder's `:`, a case-only change is allowed, and a
     /// name another file already has is refused, and so is a title of spaces,
     /// whose empty name resolved to the folder itself plus `.md` and moved the
     /// note out of its folder. Returns false when the file was not moved.
     func renameFile(to title: String) -> Bool {
-        let fileName =
-            title
-            .trimmingCharacters(in: CharacterSet.whitespaces)
-            .replacingOccurrences(of: ":", with: "-")
-            .replacingOccurrences(of: "/", with: ":")
+        let fileName = Self.sanitizedFileName(title)
         guard !fileName.isEmpty else { return false }
         let current = getFileName()
         let dst = project.url.appendingPathComponent(fileName).appendingPathExtension(url.pathExtension)

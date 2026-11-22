@@ -1,5 +1,4 @@
 import Foundation
-import SkyBook
 
 // MARK: - Outline parsing (QA batch)
 
@@ -293,9 +292,7 @@ func scopeLayoutAndOutlineVisibilityPersistAcrossReinit(_ ctx: AuditContext) asy
     let layoutWasNoteOnly = model.layout == .noteOnly
 
     let stored = UserDefaults.standard.string(forKey: "ShellLayout")
-    print("   [diag] persist: stored=\(stored ?? "nil")")
     let reborn = ShellModel()
-    print("   [diag] persist: rebornLayout=\(reborn.layout) rebornScope=\(reborn.scope)")
     try expect(reborn.scope == .project(folder.url), "scope restores: \(reborn.scope)")
     try expect(reborn.layout == .noteOnly, "layout restores")
     try expect(reborn.isOutlineVisible == outlineWasVisible, "outline visibility restores")
@@ -359,4 +356,49 @@ func paletteSearchesCommitsAndCreates(_ ctx: AuditContext) async throws {
     await ctx.waitUntil { model.notes.contains { $0.url.lastPathComponent.hasPrefix("palette-new-note-zz") } }
     try expect(model.notes.contains { $0.url.lastPathComponent.hasPrefix("palette-new-note-zz") },
         "⌘Return names a note after the query")
+}
+
+/// Typing in the nav column opens the palette, but the folder-rename field
+/// lives there and its keystrokes are the name being typed.
+@MainActor
+func seedsPaletteLeavesFolderRenamingAlone(_ ctx: AuditContext) async throws {
+    try expect(ShellWindowController.seedsPalette(with: "a", isRenamingFolder: false),
+        "a letter in the navigation column seeds the palette")
+    try expect(!ShellWindowController.seedsPalette(with: "a", isRenamingFolder: true),
+        "a letter while renaming a folder stays in the rename field")
+    try expect(!ShellWindowController.seedsPalette(with: "↑", isRenamingFolder: false),
+        "a non-alphanumeric key never seeds the palette")
+    try expect(!ShellWindowController.seedsPalette(with: "", isRenamingFolder: false),
+        "an empty key never seeds the palette")
+}
+
+/// The palette searches the whole library; picking a hit from another folder
+/// must widen the scope, or the note pane goes blank.
+@MainActor
+func paletteWidensScopeForAHitOutsideIt(_ ctx: AuditContext) async throws {
+    let folder = ctx.makeFolder("palette-scope")
+    let note = await ctx.makeLoadedNote("palette-scope-hit", headings: ["scope needle"])
+    let model = ctx.model
+    model.scope = .project(folder.url)
+    model.selectedNoteURL = nil
+    model.openPalette(query: "scope needle")
+    await ctx.waitUntil { model.paletteResults.contains { $0.url == note.url } }
+    model.paletteSelected = model.paletteResults.firstIndex { $0.url == note.url } ?? 0
+    model.paletteCommit()
+    await ctx.waitUntil { model.selectedNoteURL == note.url && model.selectedNote != nil }
+    try expect(model.scope == .all, "a hit outside the scope widens it to All Notes")
+    try expect(model.selectedNote?.url == note.url, "the picked note is selected, not a blank pane")
+}
+
+/// A query's results belong to that query: Return during the 150 ms debounce
+/// must not open the previous query's row.
+@MainActor
+func paletteClearsStaleResultsWhenTheQueryChanges(_ ctx: AuditContext) async throws {
+    _ = await ctx.makeLoadedNote("palette-debounce", headings: ["debounce"])
+    let model = ctx.model
+    model.openPalette(query: "palette-debounce")
+    await ctx.waitUntil { !model.paletteResults.isEmpty }
+    model.paletteQuery = "palette-debounce-zzz"
+    try expect(model.paletteResults.isEmpty, "a query change drops the previous results at once")
+    model.closePalette()
 }

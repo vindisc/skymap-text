@@ -3,10 +3,9 @@ import Carbon.HIToolbox
 import KeyboardShortcuts
 import SwiftUI
 
-/// Hosts the SwiftUI shell in a window of its own. Until it reaches parity
-/// with the storyboard window it opens only when launched with
-/// `-MiaoYanShell YES` (an Xcode scheme argument), so the shipping window is
-/// untouched.
+/// Hosts the SwiftUI shell in a window of its own. This is the app's default
+/// and only window on branch `spm`; the storyboard window stays dormant behind
+/// `defaults write local.skybook MiaoYanShell -bool NO`.
 @available(macOS 14, *)
 final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     private var appearanceObservation: NSKeyValueObservation?
@@ -136,7 +135,10 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     private static func recentreIfLost(_ window: NSWindow, force: Bool) {
         let saved = window.frame
         let isOffScreen = NSScreen.screens.allSatisfy { !$0.visibleFrame.intersects(saved) }
-        let isTooSmall = saved.width < 1100 || saved.height < 680
+        // Only a frame the window cannot legally hold is "too small"; the
+        // layout's 1100×680 comfort size is not a floor, or a deliberate
+        // 1000×640 window came back enlarged on every launch.
+        let isTooSmall = saved.width < window.minSize.width || saved.height < window.minSize.height
         guard force || isOffScreen || isTooSmall,
             let visible = (isOffScreen ? nil : window.screen)?.visibleFrame ?? NSScreen.main?.visibleFrame
         else { return }
@@ -168,12 +170,12 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         // selectors with note items (`renameMenu:`), so they get folder
         // actions of their own here.
         let folderActions: [Selector: Selector] = [
-            Selector(("renameMenu:")): #selector(renameFolderMenu(_:)),
-            Selector(("revealInFinder:")): #selector(revealFolderMenu(_:)),
-            Selector(("deleteMenu:")): #selector(deleteFolderMenu(_:)),
-            Selector(("add:")): #selector(newFolderMenu(_:)),
-            Selector(("addProject:")): #selector(newFolderMenu(_:)),
-            Selector(("newSubfolder:")): #selector(newFolderMenu(_:)),
+            NSSelectorFromString("renameMenu:"): #selector(renameFolderMenu(_:)),
+            NSSelectorFromString("revealInFinder:"): #selector(revealFolderMenu(_:)),
+            NSSelectorFromString("deleteMenu:"): #selector(deleteFolderMenu(_:)),
+            NSSelectorFromString("add:"): #selector(newFolderMenu(_:)),
+            NSSelectorFromString("addProject:"): #selector(newFolderMenu(_:)),
+            NSSelectorFromString("newSubfolder:"): #selector(newFolderMenu(_:)),
         ]
         func walk(_ menu: NSMenu) {
             for item in menu.items {
@@ -506,7 +508,7 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         menu.addItem(withTitle: "PDF", action: #selector(exportPdf(_:)), keyEquivalent: "")
         menu.addItem(withTitle: I18n.str("Image"), action: #selector(exportImage(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "HTML", action: #selector(exportHtml(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: I18n.str("MiaoYan PPT PDF"), action: #selector(exportMiaoYanPPT(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: I18n.str("PPT PDF"), action: #selector(exportMiaoYanPPT(_:)), keyEquivalent: "")
         return menu
     }
 
@@ -649,7 +651,8 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         let isText = responder is NSTextView
         let hasNote = model.selectedNote != nil
         let column = column(of: responder)
-        // The only text field in the navigation column is its search field.
+        // The navigation column's only text field is the folder-rename field
+        // (the list's search field was retired with the merged column).
         let inSearch = isText && column == .nav
         let inNav = !isText && column == .nav
 
@@ -849,14 +852,23 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
         }
 
         // Typing a letter or digit in the navigation column opens the
-        // palette seeded with it, as the old list filter did.
-        if flags.isDisjoint(with: [.command, .control]), let typed = event.characters, !typed.isEmpty,
-            CharacterSet(charactersIn: typed).isSubset(of: .alphanumerics)
+        // palette seeded with it, as the old list filter did — except while
+        // the folder-rename field is up: those keys belong to the rename.
+        if flags.isDisjoint(with: [.command, .control]), let typed = event.characters,
+            Self.seedsPalette(with: typed, isRenamingFolder: model.renamingFolderURL != nil)
         {
             model.openPalette(query: typed)
             return true
         }
         return false
+    }
+
+    /// Whether a typed character in the navigation column opens the palette.
+    /// The folder-rename field is the column's one text field; its keystrokes
+    /// are the rename, not a query.
+    nonisolated static func seedsPalette(with typed: String, isRenamingFolder: Bool) -> Bool {
+        guard !isRenamingFolder, !typed.isEmpty else { return false }
+        return CharacterSet(charactersIn: typed).isSubset(of: .alphanumerics)
     }
 
     // MARK: - Swipe
@@ -1080,6 +1092,10 @@ final class ShellWindowController: NSWindowController, NSWindowDelegate, NSMenuI
     func windowWillClose(_ notification: Notification) {
         reopensInFullScreen = window?.styleMask.contains(.fullScreen) == true && !didEnterFullScreenForPresentation
         model.setPresenting(false)
+        // The palette is a child panel that merely gets ordered out with the
+        // shell; leaving the model flag open made the first ⌘K after reopening
+        // only close it.
+        model.closePalette()
         flushEdits()
     }
 
@@ -1240,6 +1256,10 @@ final class ShellSplitViewController: NSSplitViewController {
             Task { @MainActor in
                 self?.isApplyingLayout = false
                 self?.model.layoutDidSettle()
+                // Collapsing the navigation column is Command-1's whole job:
+                // the list had the keys, and typing right after it has to
+                // land in the editor.
+                if navCollapsed { self?.model.focusEditor() }
             }
         }
     }
