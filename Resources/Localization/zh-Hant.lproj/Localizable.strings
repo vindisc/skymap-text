@@ -186,7 +186,7 @@
 "Moved %d unused attachment(s) to Trash" = "已將 %d 個未使用的附件移到垃圾桶";
 "Some attachments could not be removed" = "部分附件無法清理";
 "Some notes could not be read, so no attachments were cleaned" = "部分筆記讀取失敗，這次沒有清理附件";
-"MiaoYan PPT PDF" = "妙言 PPT PDF";
+"PPT PDF" = "妙言 PPT PDF";
 "Clean" = "清理";
 
 /* Export Messages */
@@ -351,3 +351,13 @@
 "Task 1" = "待完成任務1";
 "Task 2" = "待完成任務2";
 "Finished task" = "已完成任務";
+
+"Search Notes" = "搜尋筆記";
+"Select a note, or press ⌘N to create one" = "選擇一則筆記，或按 ⌘N 新增";
+"Title" = "標題";
+"esc Close" = "esc 關閉";
+"↑↓ Browse" = "↑↓ 瀏覽";
+"⌘⏎ New Note" = "⌘⏎ 新增筆記";
+"⏎ Open" = "⏎ 開啟";
+"Couldn't import the file" = "無法匯入此檔案";
+"Couldn't save the folder's notes, so it was not deleted" = "無法儲存資料夾中的筆記，因此未刪除";

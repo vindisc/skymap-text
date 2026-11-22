@@ -202,7 +202,7 @@
 /* Clean attachments */
 "Some attachments could not be removed" = "Algunos archivos adjuntos no pudieron ser eliminados";
 "Some notes could not be read, so no attachments were cleaned" = "No se pudieron leer algunas notas, así que no se limpió ningún adjunto";
-"MiaoYan PPT PDF" = "MiaoYan PPT PDF";
+"PPT PDF" = "MiaoYan PPT PDF";
 "Clean" = "Limpiar";
 
 /* Export Messages */
@@ -368,3 +368,18 @@
 "Task 1" = "Tarea 1";
 "Task 2" = "Tarea 2";
 "Finished task" = "Tarea terminada";
+
+"Search Notes" = "Buscar notas";
+"Select a note, or press ⌘N to create one" = "Selecciona una nota o pulsa ⌘N para crear una";
+"Title" = "Título";
+"esc Close" = "esc Cerrar";
+"↑↓ Browse" = "↑↓ Navegar";
+"⌘⏎ New Note" = "⌘⏎ Nueva nota";
+"⏎ Open" = "⏎ Abrir";
+"Couldn't import the file" = "No se pudo importar el archivo";
+"Couldn't save the folder's notes, so it was not deleted" = "No se pudieron guardar las notas de la carpeta, así que no se eliminó";
+"Moved %d unused attachment(s) to Trash" = "Se movieron %d adjunto(s) no usados a la papelera";
+"Move %d unused attachment(s) to Trash?" = "¿Mover %d adjunto(s) no usados a la papelera?";
+"Couldn't move %d note(s) to Trash" = "No se pudieron mover %d nota(s) a la papelera";
+"Move %d note(s) to the system Trash?" = "¿Mover %d nota(s) a la papelera del sistema?";
+"Couldn't restore %d note(s) from the Trash" = "No se pudieron restaurar %d nota(s) de la papelera";

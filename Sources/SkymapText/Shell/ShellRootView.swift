@@ -996,7 +996,7 @@ private struct ShellNoteMenu: View {
                 item("HTML", "chevron.left.forwardslash.chevron.right") { exportSelecting(.html) }
                 item("Image", "photo") { exportSelecting(.image) }
                 item("PDF", "doc.richtext") { exportSelecting(.pdf) }
-                item("MiaoYan PPT PDF", "wand.and.stars") { exportSelecting(.ppt) }
+                item("PPT PDF", "wand.and.stars") { exportSelecting(.ppt) }
                     // A deck needs a --- slide break; an unread note is let through.
                     .disabled(!model.hasSlides(note))
             } label: {

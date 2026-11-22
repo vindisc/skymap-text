@@ -208,7 +208,7 @@
 "Moved %d unused attachment(s) to Trash" = "未使用の添付ファイル %d 件をゴミ箱に移動しました";
 "Some attachments could not be removed" = "一部の添付ファイルを削除できませんでした";
 "Some notes could not be read, so no attachments were cleaned" = "一部のノートを読み込めなかったため、添付ファイルは整理しませんでした";
-"MiaoYan PPT PDF" = "妙言 スライド PDF";
+"PPT PDF" = "妙言 スライド PDF";
 "Clean" = "整理";
 
 /* Export Messages */
@@ -374,3 +374,13 @@
 "Task 1" = "タスク1";
 "Task 2" = "タスク2";
 "Finished task" = "完了したタスク";
+
+"Search Notes" = "ノートを検索";
+"Select a note, or press ⌘N to create one" = "ノートを選択するか、⌘N で新規作成";
+"Title" = "タイトル";
+"esc Close" = "esc 閉じる";
+"↑↓ Browse" = "↑↓ 移動";
+"⌘⏎ New Note" = "⌘⏎ 新規ノート";
+"⏎ Open" = "⏎ 開く";
+"Couldn't import the file" = "ファイルを読み込めませんでした";
+"Couldn't save the folder's notes, so it was not deleted" = "フォルダ内のノートを保存できなかったため、削除しませんでした";
