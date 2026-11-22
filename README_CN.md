@@ -1,6 +1,6 @@
 > **Fork 说明：** 本仓库的 `spm` 分支构建 **SkyBook**——基于妙言的纯
-> SwiftPM 两栏重构（导航合栏 + 大纲栏 + ⌘E 双态编辑）。从源码构建：
-> `swift build -c release`，然后 `bash scripts/make_app.sh release`
+> SwiftPM 双栏外壳重构（导航合栏 + 大纲栏 + ⌘E 双态编辑）。从源码构建：
+> `swift build -c release`，然后 `./scripts/make_app.sh release`
 >（需要 macOS 14+；仅需 Command Line Tools，无需 Xcode）。以下产品介绍
 > 描述的是 `main` 分支的妙言本体。
 
@@ -14,7 +14,7 @@
   <a href="https://github.com/tw93/MiaoYan/releases" target="_blank"><img alt="GitHub 下载量" src="https://img.shields.io/github/downloads/tw93/MiaoYan/total.svg?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/commits" target="_blank"><img alt="GitHub 提交活跃度" src="https://img.shields.io/github/commit-activity/m/tw93/MiaoYan?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/issues?q=is%3Aissue+is%3Aclosed" target="_blank"><img alt="GitHub 已关闭议题" src="https://img.shields.io/github/issues-closed/tw93/MiaoYan.svg?style=flat-square"></a>
-  <img alt="macOS 12.0+" src="https://img.shields.io/badge/macOS-12.0%2B-orange?style=flat-square">
+  <img alt="macOS 14.0+" src="https://img.shields.io/badge/macOS-14.0%2B-orange?style=flat-square">
 </div>
 
 <img src="https://miaoyan.app/assets/shots/readme-zh.webp?v=20261115" width="900" alt="妙言在 Mac、iPad 和 iPhone 上" />
@@ -33,7 +33,7 @@
 
 <a href="https://apps.apple.com/cn/app/miaoyan/id6759252269"><img src="https://cdn.tw93.fun/uPic/C3Renh.png" width="160" alt="Download on the Mac App Store" /></a>
 
-Mac 开源版也可以用 Homebrew（`brew install --cask miaoyan`）安装，或从 [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) 下载（macOS 12.0+）。
+Mac 开源版也可以用 Homebrew（`brew install --cask miaoyan`）安装，或从 [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) 下载（macOS 14.0+）。
 
 ## 用坚果云或其他云盘同步妙言
 

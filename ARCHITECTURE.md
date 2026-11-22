@@ -37,10 +37,10 @@ A single macOS application process owns:
 - One `WKWebView` instance per editor pane that loads
   `Resources/DownView.bundle/index.html` for live preview.
 
-A SwiftUI main window under `Shell/` (`ShellWindowController`, `ShellModel`,
-`ShellRootView`) opens instead of the storyboard window when the app is
-launched with `-MiaoYanShell YES`. It hosts the same `EditTextView` and
-`MPreviewView` and stays behind the flag until it reaches parity.
+The SwiftUI shell under `Shell/` (`ShellWindowController`, `ShellModel`,
+`ShellRootView`) is the app's default and only window on this branch. It hosts
+the same `EditTextView` and `MPreviewView`; the storyboard stack is dormant and
+only reachable with `defaults write local.skybook MiaoYanShell -bool NO`.
 
 Logic the Mac app shares with the iPhone app (frontmatter, search matching,
 note text decoding, list previews) lives in the local package
@@ -157,14 +157,14 @@ Bundled JS used by the preview is vendored under
 
 ## Release & Update Path
 
-- Mac App Store builds come from the private `tw93/MiaoYan-Pro` after it
-  merges this repository's `main`.
-- Direct downloads: `bash scripts/build.sh` produces a zipped `.app`; when the
-  maintainer's private `~/.config/miaoyan/build.sh` exists it runs instead. The
-  Sparkle `appcast.xml` is updated by `scripts/release-ci/update_appcast.sh`
-  (needs the Sparkle EdDSA private key).
-- Version triplet (must stay aligned): git tag `Vx.y.z`, `MARKETING_VERSION`,
-  `CURRENT_PROJECT_VERSION`. CI rejects mismatches when a tag is pushed.
+- `VERSION` (root) is the single version source: `scripts/make_app.sh` writes
+  `CFBundleShortVersionString` from it and derives `CFBundleVersion`.
+- `./scripts/make_app.sh release` assembles `.build/SkyBook.app` (ad-hoc
+  signed); `./scripts/package_app.sh` zips it into
+  `dist/SkyBook-<version>-macOS.zip`.
+- The SwiftPM build ships no `SUFeedURL`, so the Sparkle updater is created
+  only for builds whose Info.plist carries a feed; the framework is linked but
+  idle on the local build. Distribute new builds by replacing the download.
 
 ## Current Wiring Notes
 
@@ -173,8 +173,9 @@ Bundled JS used by the preview is vendored under
 - `Business/AppEnvironment.swift` is in the app target and is the preferred
   facade for new singleton access.
 - `Helpers/UIDelay.swift` is in the app target for semantic async delay names.
-- `MiaoYanTests/` is wired into `MiaoYan.xcodeproj`, and CI runs the macOS unit
-  test step together with the Debug app build.
+- `MiaoYanTests/` and the XCTest suites are tracked from `main` but are not
+  built or run on this branch; `Sources/SkymapText/AppAudit.swift` is the
+  test runner here.
 
 ## See Also
 

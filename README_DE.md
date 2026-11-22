@@ -9,7 +9,7 @@
   <a href="https://github.com/tw93/MiaoYan/releases" target="_blank"><img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/tw93/MiaoYan/total.svg?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/commits" target="_blank"><img alt="GitHub Commit Activity" src="https://img.shields.io/github/commit-activity/m/tw93/MiaoYan?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/issues?q=is%3Aissue+is%3Aclosed" target="_blank"><img alt="GitHub Closed Issues" src="https://img.shields.io/github/issues-closed/tw93/MiaoYan.svg?style=flat-square"></a>
-  <img alt="macOS 12.0+" src="https://img.shields.io/badge/macOS-12.0%2B-orange?style=flat-square">
+  <img alt="macOS 14.0+" src="https://img.shields.io/badge/macOS-14.0%2B-orange?style=flat-square">
 </div>
 
 <img src="https://miaoyan.app/assets/shots/readme-en.webp?v=20261106" width="900" alt="MiaoYan auf Mac, iPad und iPhone" />
@@ -28,7 +28,7 @@ Am besten über den App Store, ein Kauf für iPhone, iPad und Mac, mit automatis
 
 <a href="https://apps.apple.com/app/miaoyan/id6759252269"><img src="https://cdn.tw93.fun/uPic/C3Renh.png" width="160" alt="Laden im Mac App Store" /></a>
 
-Die Open-Source-Mac-App gibt es auch über Homebrew (`brew install --cask miaoyan`) oder [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) (macOS 12.0+).
+Die Open-Source-Mac-App gibt es auch über Homebrew (`brew install --cask miaoyan`) oder [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) (macOS 14.0+).
 
 ## Synchronisation mit Nutstore oder anderen Cloud-Diensten
 

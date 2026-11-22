@@ -8,7 +8,7 @@
   <a href="https://github.com/tw93/MiaoYan/releases" target="_blank"><img alt="GitHub 下載量" src="https://img.shields.io/github/downloads/tw93/MiaoYan/total.svg?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/commits" target="_blank"><img alt="GitHub 提交活躍度" src="https://img.shields.io/github/commit-activity/m/tw93/MiaoYan?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/issues?q=is%3Aissue+is%3Aclosed" target="_blank"><img alt="GitHub 已關閉議題" src="https://img.shields.io/github/issues-closed/tw93/MiaoYan.svg?style=flat-square"></a>
-  <img alt="macOS 12.0+" src="https://img.shields.io/badge/macOS-12.0%2B-orange?style=flat-square">
+  <img alt="macOS 14.0+" src="https://img.shields.io/badge/macOS-14.0%2B-orange?style=flat-square">
 </div>
 
 <img src="https://miaoyan.app/assets/shots/readme-zh.webp?v=20261115" width="900" alt="妙言在 Mac、iPad 和 iPhone 上" />
@@ -27,7 +27,7 @@
 
 <a href="https://apps.apple.com/app/miaoyan/id6759252269"><img src="https://cdn.tw93.fun/uPic/C3Renh.png" width="160" alt="Download on the Mac App Store" /></a>
 
-Mac 開源版也可以用 Homebrew（`brew install --cask miaoyan`）安裝，或從 [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) 下載（macOS 12.0+）。
+Mac 開源版也可以用 Homebrew（`brew install --cask miaoyan`）安裝，或從 [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) 下載（macOS 14.0+）。
 
 ## 用堅果雲或其他雲端硬碟同步妙言
 

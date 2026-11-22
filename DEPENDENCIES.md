@@ -1,30 +1,31 @@
 # MiaoYan Dependencies
 
-This document is the source of truth for runtime dependencies. Nothing
-enforces it, so keep the table below aligned with the package references in
-`MiaoYan.xcodeproj/project.pbxproj` by hand, in the same commit. Removals matter as much as additions.
+This document is the source of truth for runtime dependencies. Keep the table
+below aligned with `Package.swift` by hand, in the same commit. Removals
+matter as much as additions.
 
 ## Swift Package Manager
 
-The Xcode project declares its Swift dependencies as package references in
-`MiaoYan.xcodeproj/project.pbxproj` (`XCRemoteSwiftPackageReference`), and the
-table follows those. No Xcode project reads `Package.swift`; it is only a
-reference list (the `targets:` array is intentionally empty) and its versions
-may differ.
+On branch `spm` the app builds as a plain SwiftPM executable (`SkyBook`,
+sources under `Sources/SkymapText/`) for macOS 14+ with Command Line Tools;
+`Package.swift` is the only dependency declaration. The storyboard project on
+`main` still declares its own package references, but nothing on this branch
+builds it.
 
 | Package                                                            | Constraint | Purpose                                                |
 | ------------------------------------------------------------------ | ---------- | ------------------------------------------------------ |
-| [Sparkle](https://github.com/sparkle-project/Sparkle)              | 2.7.3+     | macOS auto-update (non-AppStore builds only)           |
+| [Sparkle](https://github.com/sparkle-project/Sparkle)              | 2.8.0+     | macOS auto-update; idle without an `SUFeedURL`          |
 | [Highlightr](https://github.com/raspu/Highlightr)                  | 2.3.0+     | Native syntax highlighting in `Helpers/NotesTextProcessor.swift` |
-| [swift-cmark-gfm](https://github.com/stackotter/swift-cmark-gfm)   | 1.0.0+     | GitHub Flavored Markdown parsing (preview + export)    |
-| [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | 2.3.0+ | Global keyboard shortcut registration (window activation) |
+| [swift-cmark-gfm](https://github.com/stackotter/swift-cmark-gfm)   | 1.0.2+     | GitHub Flavored Markdown parsing (preview + export)    |
+| [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | vendored, patched | Shortcut registration; local package under `Packages/KeyboardShortcuts` |
 | [Prettier](https://github.com/simonbs/Prettier.git)                | 0.2.1+     | Markdown formatting from the Format command                            |
 
 ## Conditional Compilation
 
-- This repository builds the direct-download app with Sparkle. The Mac App Store
-  build is packaged outside this repository, where Sparkle is stripped and Apple's
-  update mechanism is used instead; no `#if !APPSTORE` gate exists here.
+- Sparkle is linked on the SwiftPM build but the generated Info.plist has no
+  `SUFeedURL`/`SUPublicEDKey`, so the updater is never started. The Mac App
+  Store story belongs to `main`/`MiaoYan-Pro`; no `#if !APPSTORE` gate exists
+  here.
 
 ## Bundled Frontend Assets
 

@@ -7,6 +7,12 @@ paths:
 
 # Release
 
+Branch note: the release channel below (GitHub Release assets, appcast, Sparkle,
+`scripts/build.sh`, the pbxproj version triplet) is `main`'s. On `spm` the app is
+built with `./scripts/make_app.sh release`, zipped with
+`./scripts/package_app.sh`, versioned only by root `VERSION`, and the
+SwiftPM build ships no `SUFeedURL` — publish by replacing the download.
+
 Written from `tw93/MiaoYan`. The note rules hold in both repositories; the channel steps (GitHub Release, appcast, Sparkle, reactions) are direct-download and MiaoYan-Pro does not run them.
 
 This repository ships the direct-download app: GitHub Release assets plus an appcast entry, updated in place by Sparkle from `https://miaoyan.app/appcast.xml`, and picked up by Homebrew. Build with `scripts/build.sh` (Developer ID, notarization, Sparkle). The App Store Mac and iPhone builds come from the private `tw93/MiaoYan-Pro`, which merges this repository's `main` first, so App Store users never see this channel's appcast. miaoyan.app recommends the App Store and links only to the App Store and this repository, never to a Mac download (maintainer, 2026-10-11); the release assets stay for Sparkle and Homebrew users.

@@ -21,8 +21,9 @@ one SwiftPM executable target (`SkyBook`, sources under
   `CustomTextStorage`), preview plumbing (`HtmlManager`), diagnostics.
 - `Views/` — `EditTextView` (NSTextView editor), `MPreviewView`
   (WKWebView preview), prefs controllers' views.
-- `Controllers/` — `AppDelegate` (@MainActor entry), `MainMenuBuilder`
-  (programmatic NSMenu), prefs windows, `main.swift` sibling wiring.
+- `Controllers/` — `AppDelegate` (launch wiring), `MainMenuBuilder`
+  (programmatic NSMenu), prefs windows; `../AppEntry.swift` is the `@main`
+  entry (no `main.swift` on this branch).
 - `Packages/MiaoYanCore/` — local package: pure-Foundation logic shared with
   the (upstream) iPhone app; frontmatter, note text, search, table editing.
 - `Packages/KeyboardShortcuts/` — **vendored** sindresorhus/KeyboardShortcuts
@@ -36,10 +37,10 @@ one SwiftPM executable target (`SkyBook`, sources under
 
 ```bash
 swift build -c debug|release        # compile (CLT only; no Xcode needed)
-bash scripts/run_app.sh release     # rebuild + repackage + relaunch the app
-bash scripts/make_app.sh release    # assemble .build/SkyBook.app (Info.plist,
+./scripts/run_app.sh release     # rebuild + repackage + relaunch the app
+./scripts/make_app.sh release    # assemble .build/SkyBook.app (Info.plist,
                                     #   frameworks, resources, ad-hoc sign)
-bash scripts/package_app.sh         # ditto-zip into dist/
+./scripts/package_app.sh         # ditto-zip into dist/
 bash scripts/selfcheck.sh           # build + audit scenarios + python gates
 swiftlint lint --strict             # lint (config at .swiftlint.yml, when installed)
 python3 scripts/check_incidents.py  # docs/incidents.md rows hold
@@ -49,16 +50,18 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 ## Testing
 
 `swift test` is unavailable here (CLT ships no XCTest/Swift Testing runner).
-The self-check instead is `Sources/SkymapText/AppAudit.swift`: nine headless
-scenarios that build a temp-folder `ShellModel` and assert the audited
-behaviors — outline refresh timing (note switch, cold-note async fill,
-rendered-mode page load), merged nav rows, empty-folder hint, mixed arrow
-navigation, the two-state editor toggle with persistence, the preview reuse
-gate, and pending-rename commit on create. Run them through
+The self-check instead is `Sources/SkymapText/AppAudit.swift` (plus its
+`AppAudit+Scenarios`/`AppAudit+AlertGeometry` files): 33 headless scenarios
+that build a temp-folder `ShellModel` and assert the audited behaviors —
+outline refresh timing and parsing, merged nav rows and arrows, the two-state
+editor toggle, the preview reuse/export gates, rename rules, trash undo,
+palette search/scope/debounce seeding, persistence and alert geometry. Run
+them through
 `bash scripts/selfcheck.sh` (or `.build/debug/SkyBook --audit`); the exit
 code carries the verdict. **Every bug fix on this branch lands with a
 scenario in AppAudit.swift**, and selfcheck.sh runs after every change.
-`MiaoYanTests/` and the XCTest suites are main-branch assets.
+`MiaoYanTests/` and the XCTest suites are tracked from the main branch but are
+not built or run here.
 
 Full-app builds are the default verification for any Swift or packaging
 change; `run_app.sh` is the dev loop (kills the old instance, rebuilds,
@@ -67,10 +70,10 @@ relaunches).
 ## Constraints and landmines
 
 - **No Xcode on this machine.** `swift test` cannot run (CLT ships no
-  XCTest); MiaoYanTests/ and Packages/MiaoYanCore/Tests are main-branch
-  assets. Local verification = the commands above plus hand-testing the
-  checklist in each task.
-- **main.swift wires the delegate by hand.** Without a storyboard,
+  XCTest); MiaoYanTests/ and Packages/MiaoYanCore/Tests are tracked from the
+  main branch but not exercised here. Local verification = the commands
+  above plus hand-testing the checklist in each task.
+- **AppEntry.swift wires the delegate by hand.** Without a storyboard,
   `NSApplicationMain` never instantiates an `@main NSApplicationDelegate`
   (probed: `applicationDidFinishLaunching` never fired) — do not reintroduce
   `@main` on AppDelegate.
@@ -85,7 +88,7 @@ relaunches).
   equivalents), drops `InfoPlist.strings` (it would rebrand the display
   name), and ships `THIRD-PARTY-NOTICES.md` for the licenses window.
 - **`VERSION`** (root) drives `CFBundleShortVersionString` via
-  `make_app.sh`; bundle id is `local.skymaptext`, so defaults never collide
+  `make_app.sh`; bundle id is `local.skybook`, so defaults never collide
   with the installed MiaoYan.app.
 - **KeyboardShortcuts.Name** extension lives in legacy
   `Controllers/ViewController.swift:7` — relocate it before deleting that
@@ -99,6 +102,6 @@ classes (`MainWindowController`, `ViewController*`, `NotesTableView`,
 `scripts/add_tests_target.rb`, `scripts/release-ci/`, `MiaoYanTests/`,
 `.github/workflows/ci.yml` and the `MiaoYan-Pro` App Store story are the
 **main branch's** flow. They compile on `spm` (dormant behind
-`defaults write MiaoYanShell NO`) but are not built, tested or packaged
-here. Shell-reachable dead selectors (`togglePresentation`,
+`defaults write local.skybook MiaoYanShell -bool NO`) but are not built,
+tested or packaged here. Shell-reachable dead selectors (`togglePresentation`,
 `toggleMagicPPT`, `toggleTOC`) stay for that stack.

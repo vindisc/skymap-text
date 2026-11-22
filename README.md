@@ -1,7 +1,7 @@
 > **Fork note:** this repository's `spm` branch builds **SkyBook** — a
-> pure-SwiftPM two-pane restructure of MiaoYan (merged navigation column,
+> pure-SwiftPM two-column shell restructure of MiaoYan (merged navigation column,
 > outline column, Command-E two-state editor). Build from source:
-> `swift build -c release`, then `bash scripts/make_app.sh release`
+> `swift build -c release`, then `./scripts/make_app.sh release`
 > (requires macOS 14+; Command Line Tools suffice — no Xcode). The product
 > copy below describes MiaoYan on `main`.
 
@@ -16,7 +16,7 @@
   <a href="https://github.com/tw93/MiaoYan/releases" target="_blank"><img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/tw93/MiaoYan/total.svg?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/commits" target="_blank"><img alt="GitHub Commit Activity" src="https://img.shields.io/github/commit-activity/m/tw93/MiaoYan?style=flat-square"></a>
   <a href="https://github.com/tw93/MiaoYan/issues?q=is%3Aissue+is%3Aclosed" target="_blank"><img alt="GitHub Closed Issues" src="https://img.shields.io/github/issues-closed/tw93/MiaoYan.svg?style=flat-square"></a>
-  <img alt="macOS 12.0+" src="https://img.shields.io/badge/macOS-12.0%2B-orange?style=flat-square">
+  <img alt="macOS 14.0+" src="https://img.shields.io/badge/macOS-14.0%2B-orange?style=flat-square">
 </div>
 
 <img src="https://miaoyan.app/assets/shots/readme-en.webp?v=20261106" width="900" alt="MiaoYan on Mac, iPad and iPhone" />
@@ -35,7 +35,7 @@ Get it on the App Store, one purchase for iPhone, iPad and Mac, with automatic u
 
 <a href="https://apps.apple.com/app/miaoyan/id6759252269"><img src="https://cdn.tw93.fun/uPic/C3Renh.png" width="160" alt="Download on the Mac App Store" /></a>
 
-The open-source Mac app is also available through Homebrew (`brew install --cask miaoyan`) or [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) (macOS 12.0+).
+The open-source Mac app is also available through Homebrew (`brew install --cask miaoyan`) or [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) (macOS 14.0+).
 
 ## Sync with Nutstore or Other Cloud Drives
 
