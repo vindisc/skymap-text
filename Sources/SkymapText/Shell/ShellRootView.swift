@@ -576,10 +576,13 @@ private struct ShellNoteRow: View {
 
     var body: some View {
         let nameSize = CGFloat(UserDefaultsManagement.nameFontSize)
+        // Notes sit a level under the folders: their titles take the
+        // secondary ink so the folder names carry the primary one; the open
+        // note returns to the primary ink on its selection plate.
         let titleText = Text(title)
             .font(ShellStyle.interface(nameSize))
             .kerning(ShellStyle.tracking(nameSize))
-            .foregroundStyle(ShellStyle.text)
+            .foregroundStyle(isSelected ? ShellStyle.text : ShellStyle.secondaryText)
             .lineLimit(1)
             .truncationMode(.tail)
         HStack(spacing: 4) {

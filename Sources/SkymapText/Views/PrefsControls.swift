@@ -564,7 +564,9 @@ private final class PrefsTabButton: NSButton {
         self.action = action
         translatesAutoresizingMaskIntoConstraints = false
         isBordered = false
-        focusRingType = .exterior
+        // The tab already draws its own selection capsule; the system focus
+        // ring on top of it read as a stray blue halo (2026-11-22).
+        focusRingType = .none
         setButtonType(.momentaryChange)
         setAccessibilityRole(.radioButton)
         heightAnchor.constraint(equalToConstant: PrefsMetrics.tabHeight).isActive = true
@@ -574,9 +576,6 @@ private final class PrefsTabButton: NSButton {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
-    override func drawFocusRingMask() { PrefsFocusRing.capsule(in: bounds) }
-    override var focusRingMaskBounds: NSRect { bounds }
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: textWidth(title, font: PrefsMetrics.tabFont) + PrefsMetrics.tabHorizontalPadding * 2, height: PrefsMetrics.tabHeight)
