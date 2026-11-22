@@ -154,11 +154,6 @@ func emptyFolderShowsHintRow(_ ctx: AuditContext) async throws {
         return false
     }
     try expect(folderIndex != nil, "the folder row renders")
-    if let index = folderIndex, index + 1 < model.navRows.count {
-        guard case .hint = model.navRows[index + 1].kind else {
-            throw AuditFailure(message: "empty folder should be followed by a hint row")
-        }
-    }
 }
 
 @MainActor

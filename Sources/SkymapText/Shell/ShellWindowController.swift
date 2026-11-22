@@ -1287,20 +1287,35 @@ final class ShellSplitViewController: NSSplitViewController {
         }
     }
 
-    /// The outline column follows the model's visibility flag.
+    /// The outline column follows the model's visibility flag, and hides
+    /// outright when no note is open — an empty pane beside a blank editor,
+    /// with its divider, was pure noise.
     private func observeOutlineVisibility() {
-        let visible = withObservationTracking {
-            model.isOutlineVisible
+        // This toolchain's withObservationTracking hands the apply closure's
+        // return value back, so both tracked values ride out in a tuple.
+        let (outlineOn, hasNote) = withObservationTracking {
+            (model.isOutlineVisible, model.selectedNoteURL != nil)
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeOutlineVisibility() }
         }
+        let visible = outlineOn && hasNote
         let items = splitViewItems
-        guard items.count == 3, items[2].isCollapsed != !visible else { return }
+        guard items.count == 3 else { return }
+        var collapsedChanged = false
+        var hiddenChanged = false
+        if items[2].isCollapsed != !visible { items[2].isCollapsed = !visible; collapsedChanged = true }
+        let outlineView = items[2].viewController.view
+        if outlineView.isHidden == visible { outlineView.isHidden = !visible; hiddenChanged = true }
+        guard collapsedChanged || hiddenChanged else { return }
         isApplyingLayout = true
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Theme.Motion.change
             context.timingFunction = Theme.Motion.curve
-            items[2].animator().isCollapsed = !visible
+            if hiddenChanged {
+                outlineView.animator().alphaValue = visible ? 1 : 0
+            } else {
+                items[2].animator().isCollapsed = !visible
+            }
         } completionHandler: { [weak self] in
             Task { @MainActor in
                 // A fresh expand out of the collapsed state lands at the

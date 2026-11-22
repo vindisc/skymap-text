@@ -284,17 +284,6 @@ struct ShellNav: View {
                 .accessibilityAction { model.scope = sidebarRow.id }
         case .note(let note, let indent):
             noteRow(note, indent: indent)
-        case .hint(let text, let indent):
-            let size = CGFloat(UserDefaultsManagement.dateFontSize)
-            Text(text)
-                .font(ShellStyle.interface(size))
-                .kerning(ShellStyle.tracking(size))
-                .foregroundStyle(ShellStyle.tertiaryText)
-                // The hint's text lines up with the note titles' text, while
-                // its row spans the column like every other row.
-                .padding(.leading, 20 + CGFloat(indent) * 16)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -766,14 +755,13 @@ private struct ShellDetailEmptyState: View {
     var body: some View {
         let size = CGFloat(UserDefaultsManagement.nameFontSize)
         VStack(spacing: 12) {
-            // The bird keeps its own ink, as the storyboard window's empty
-            // editor area showed it; a template drain turned it into a grey
-            // silhouette that read as a broken image.
-            SwiftUI.Image(nsImage: NSImage(named: "emptyStateBird") ?? NSImage())
+            // The Dock's colorful app icon, at a keepsake size — the flat
+            // black template bird read as a dead pixel on the dark paper.
+            SwiftUI.Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 76, height: 76)
-                .opacity(0.85)
+                .frame(width: 84, height: 84)
+                .opacity(0.9)
             Text(I18n.str("Select a note, or press ⌘N to create one"))
                 .font(ShellStyle.interface(size))
                 .kerning(ShellStyle.tracking(size))

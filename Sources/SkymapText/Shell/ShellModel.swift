@@ -150,7 +150,6 @@ final class ShellModel {
         enum Kind {
             case folder(SidebarRow, isScope: Bool)
             case note(Note, indent: Int)
-            case hint(String, indent: Int)
         }
 
         let id: String
@@ -1626,10 +1625,8 @@ final class ShellModel {
             switch navRows[next].kind {
             case .folder, .note:
                 break rowLoop
-            case .hint:
-                // Unselectable rows are stepped over; at the edge, stop.
-                if next == 0 || next == navRows.count - 1 { return }
-                continue
+            default:
+                return
             }
         } while true
         switch navRows[next].kind {
@@ -1728,15 +1725,8 @@ final class ShellModel {
     /// list.
     private func computeNavRows() {
         var rows: [NavRow] = []
+        // An empty scope says nothing: the folder row is the whole story.
         func injectScopeNotes(indent: Int) {
-            if notes.isEmpty {
-                // An empty scope says so, with the way out for a new one.
-                let hint = searchText.isEmpty
-                    ? I18n.str("No Notes Yet · ⌘N New")
-                    : I18n.str("No Matches")
-                rows.append(NavRow(id: "hint:" + scope.storedValue, kind: .hint(hint, indent: indent)))
-                return
-            }
             for note in notes {
                 rows.append(NavRow(id: "note:" + note.url.path, kind: .note(note, indent: indent)))
             }
