@@ -4,6 +4,7 @@ import MiaoYanCore
 
 extension AppDelegate {
     enum HandledSchemes: String {
+        case skybook
         case miaoyan
         case nv
         case nvALT = "nvalt"
@@ -42,7 +43,10 @@ extension AppDelegate {
             } else {
                 self.urls = urls
             }
-        case HandledSchemes.miaoyan.rawValue:
+        case HandledSchemes.skybook.rawValue,
+            HandledSchemes.miaoyan.rawValue:
+            // The brand scheme rides the same routes; miaoyan:// stays for
+            // the inherited CLI habits and nvALT-style callers.
             MiaoYanRouter(url)
         case HandledSchemes.nv.rawValue,
             HandledSchemes.nvALT.rawValue:

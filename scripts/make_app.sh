@@ -110,9 +110,10 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST
   <array>
     <dict>
       <key>CFBundleTypeRole</key><string>Viewer</string>
-      <key>CFBundleURLName</key><string>local.skymaptext</string>
+      <key>CFBundleURLName</key><string>local.skybook</string>
       <key>CFBundleURLSchemes</key>
       <array>
+        <string>skybook</string>
         <string>miaoyan</string>
       </array>
     </dict>
