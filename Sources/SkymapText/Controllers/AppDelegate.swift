@@ -635,6 +635,15 @@ extension AppDelegate {
     /// Opens the search palette with a sample query and snapshots the panel
     /// off-screen (cacheDisplay does not need a lit display), for layout
     /// eyeballing while the console is locked. Launch with `--palette-probe`.
+    private static func findField(in view: NSView?) -> NSTextField? {
+        guard let view else { return nil }
+        if let field = view as? NSTextField { return field }
+        for child in view.subviews {
+            if let found = findField(in: child) { return found }
+        }
+        return nil
+    }
+
     func runPaletteProbe() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             self.paletteWindow?.model.openPalette(query: "妙言")
@@ -652,7 +661,19 @@ extension AppDelegate {
                 let url = URL(fileURLWithPath: "/tmp/palette-probe.png")
                 try? rep.representation(using: .png, properties: [:])?.write(to: url)
                 FileHandle.standardError.write("[palprobe] wrote \(url.path)\n".data(using: .utf8)!)
-                self.paletteWindow?.model.closePalette()
+                // Key-status proof: the panel becomes key and the field
+                // accepts an insert.
+                panel.makeKeyAndOrderFront(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    let keyed = panel.isKeyWindow
+                    if let field = Self.findField(in: panel.contentView) {
+                        field.insertText("X")
+                    }
+                    FileHandle.standardError.write(
+                        ("[palprobe] keyed=\(keyed) queryAfter=\(self.paletteWindow?.model.paletteQuery ?? "?")\n")
+                            .data(using: .utf8)!)
+                    self.paletteWindow?.model.closePalette()
+                }
             }
         }
     }

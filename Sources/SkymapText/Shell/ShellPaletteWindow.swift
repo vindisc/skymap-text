@@ -3,6 +3,12 @@ import Carbon.HIToolbox
 import SwiftUI
 import MiaoYanCore
 
+/// A borderless panel that takes key status for its text field.
+@MainActor
+final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 /// The search palette: a centred panel over the shell window, Spotlight
 /// style. A separate panel, not an overlay in the split layout, so the
 /// folder tree never gives way to results and the panel outlives column
@@ -16,14 +22,17 @@ final class ShellPaletteWindow {
 
     init(model: ShellModel) {
         self.model = model
-        panel = NSPanel(
+        // Borderless: a .titled panel draws its window frame around the
+        // SwiftUI card's transparent padding, and the card carries its own
+        // shadow anyway. Keyable: a borderless window cannot become key by
+        // default, and the query field must take typing.
+        panel = KeyablePanel(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 320),
-            styleMask: [.titled, .fullSizeContentView],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
         panel.isOpaque = false
         panel.backgroundColor = .clear
+        panel.hasShadow = false
         panel.isMovableByWindowBackground = true
         panel.becomesKeyOnlyIfNeeded = false
         panel.hidesOnDeactivate = false
