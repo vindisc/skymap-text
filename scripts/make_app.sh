@@ -32,6 +32,13 @@ swift build -c "$MODE"
 BIN_PATH="$(swift build -c "$MODE" --show-bin-path)/$APP_NAME"
 [[ -x "$BIN_PATH" ]] || { echo "binary not found: $BIN_PATH" >&2; exit 1; }
 
+# Sign before the binary enters the bundle: codesign refuses to sign a
+# bare binary whose parent directory is a bundle with unsealed root
+# contents, and the resource bundles must live at the bundle root for
+# Bundle.module to find them (see below).
+install_name_tool -add_rpath @executable_path/../Frameworks "$BIN_PATH" 2>/dev/null || true
+codesign --force --sign - "$BIN_PATH"
+
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
@@ -39,18 +46,22 @@ cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
 # ---- Frameworks and package resource bundles from the SPM build ----
 # Sparkle ships as a prebuilt binary framework; without it the binary cannot
 # even load (dyld: Library not loaded). The bundle files are the SPM resource
-# packages (Highlightr, Prettier, KeyboardShortcuts), resolved via
-# Bundle.module against Bundle.main.resources when statically linked.
+# packages (Highlightr, Prettier, KeyboardShortcuts). The generated
+# Bundle.module accessor of a `swift build` executable looks for them at
+# <app>.app/<name>.bundle (Bundle.main.bundleURL) and then at the build
+# machine's .build path - NOT at Contents/Resources (v0.2.0 shipped them in
+# Resources, so every machine without this repo's .build crashed the first
+# time Highlightr initialised: resource_bundle_accessor.swift:12). They go to
+# the app root.
 BUILD_DIR="$(swift build -c "$MODE" --show-bin-path)"
 mkdir -p "$CONTENTS_DIR/Frameworks"
 for fw in "$BUILD_DIR"/*.framework(N); do
   [[ -e "$fw" ]] || continue
   cp -R "$fw" "$CONTENTS_DIR/Frameworks/"
 done
-install_name_tool -add_rpath @executable_path/../Frameworks "$MACOS_DIR/$APP_NAME" 2>/dev/null || true
 for b in "$BUILD_DIR"/*.bundle(N); do
   [[ -e "$b" ]] || continue
-  cp -R "$b" "$RESOURCES_DIR/$(basename "$b")"
+  cp -R "$b" "$APP_DIR/$(basename "$b")"
 done
 
 # ---- Resources the code reads from Bundle.main ----
@@ -157,6 +168,21 @@ PLIST
 
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 plutil -lint "$CONTENTS_DIR/Info.plist" > /dev/null
-codesign --force --deep --sign - "$APP_DIR"
+
+# The bundle accessor looks only at the app root and the build machine's
+# .build path; a bundle left out of the root ships a launch crasher. Fail the
+# package instead. Guarded on Highlightr so a build without SPM bundles (never
+# seen) still packages.
+if [[ -d "$BUILD_DIR/Highlightr_Highlightr.bundle" && ! -d "$APP_DIR/Highlightr_Highlightr.bundle" ]]; then
+  echo "error: resource bundles missing from the app root" >&2
+  exit 1
+fi
+
+# The bundle is intentionally left unsealed: sealing it before the root
+# bundles exist is impossible (codesign rejects unsealed root contents), and
+# sealing it before they are copied leaves a broken seal, which Gatekeeper
+# reports as a damaged app - worse than an unsigned one. An unsealed bundle
+# with an ad-hoc-signed arm64 binary opens exactly like v0.2.0 did:
+# right-click -> Open.
 touch "$APP_DIR"
 echo "$APP_DIR"
